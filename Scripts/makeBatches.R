@@ -23,7 +23,7 @@ pol <- rasterToPolygons(r0)
 ## VHP data ###
 ###############
 
-pathVHP <- "/bioing/user/slisovsk/VHP_SM_SMN/" 
+pathVHP <- "/Volumes/bioing/user/slisovsk/VHP_SM_SMN/"
 
 fls  <- list.files(pathVHP)
 dts  <- cbind(as.numeric(substr(sapply(strsplit(fls, "[.]"), function(x) x[[5]]), 2, 5)),
@@ -36,7 +36,15 @@ dSeq <- aggregate(seq(as.POSIXct("1980-01-01"), as.POSIXct("2020-12-31"), by = "
 
 dates <- dSeq$x[apply(dts, 1, function(x) which(x[1]==as.numeric(dSeq$Group.1) & x[2]==as.numeric(dSeq$Group.2)))]
 
-###############
+## result Raster
+r0 <- raster(paste0(pathVHP, fls[[1]]))
+# plot(r0)
+r0[] <- NA 
+names(r0) <- "phenRaster_empty"
+
+writeRaster(r0,'Results/phenRaster.tif',options=c('TFW=YES'))
+
+##############
 ## Snow data ##
 ###############
 dat <- nc_open("Data/nhsce_v01r01_19661004_20201102.nc")

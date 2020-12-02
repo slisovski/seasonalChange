@@ -18,8 +18,8 @@ pol <- rasterToPolygons(r0)
 
 
 ## batches
-batch_dir <- "/bioing/user/slisovsk/SeasonalChange/Results/Batches/"
-phen_dir  <- "/bioing/user/slisovsk/SeasonalChange/Results/phenBatches/"
+batch_dir <- "/Volumes/bioing/user/slisovsk/SeasonalChange/Results/Batches/"
+phen_dir  <- "/Volumes/bioing/user/slisovsk/SeasonalChange/Results/phenBatches/"
 batches   <- list.files(batch_dir, pattern = ".rda")
 batchID   <- sapply(strsplit(batches, "_"), function(x) as.numeric(substring(x[[2]], 1, nchar(x[[2]]) -4)))
 load("Results/dateSequence.rda") 
@@ -35,6 +35,8 @@ load("Results/dateSequence.rda")
 
 for(batch in batchID[sample(1:length(batchID))]) {
 
+  # batch = 1194
+  
 if(!file.exists(paste0(phen_dir, "phenBatch_", batch, ".rda"))) { 
   
 load(paste0(batch_dir, "Batch_", batch, ".rda"))
@@ -64,7 +66,7 @@ distM <- matrix(with(coordinates_dt, spatialrisk::haversine(y, x, i.y, i.x)),
 
 pxlPhen <- mclapply(which(onLand), function(pxl) {
   
-  # pxl <- which(onLand)[1]
+  # pxl <- which(onLand)[3601]
   
   inbfr  <- which(inBatch)[which(distM[which(inBatch)==pxl,]<15000)]
 
@@ -83,19 +85,19 @@ pxlPhen <- mclapply(which(onLand), function(pxl) {
   
   med <- apply(evi, 2, median , na.rm = T)
   
-  if(diff(quantile(med, prob = c(0.025,0.975), na.rm = T))>0.15) { ## diff ts > 0.1
-    
-    wt <- biwavelet::wt(cbind(1:length(med), zoo::na.approx(med)))
-    power  <- log2(wt$power.corr)
-    per    <- wt$period[which.max(apply(power, 1, median, na.rm = T))]
+  wt <- biwavelet::wt(cbind(1:length(med), zoo::na.approx(med)))
+  power  <- log2(wt$power.corr)
+  per    <- wt$period[which.max(apply(power, 1, median, na.rm = T))]
 
-    if(round(per,0)%in%c(42:62)) {
+  if(round(per,0)%in%c(42:62)) {
       period = 1
-    } else {
+  } else {
       if(round(wt$period[which.max(apply(power, 1, median))],0)%in%c(16:36)) {
         period = 0.5
-      } else period = NA
-    }
+    } else period = NA
+  }
+    
+  if((diff(quantile(med, prob = c(0.025,0.975), na.rm = T))>0.15) & !is.na(period)) { ## diff ts > 0.1 OR period == NA (no annual or bi-annual seasonality)
     
     datCurve <- merge(data.frame(year = as.numeric(format(seq(min(dates), max(dates), by = "week"), "%Y")),
                                  week = as.numeric(format(seq(min(dates), max(dates), by = "week"), "%U"))),
@@ -250,9 +252,8 @@ phenOut <- list(dat = phenA, raster = phenR)
 
 save(phenOut, file = paste0(phen_dir, "phenBatch_", batch, ".rda"))
 
-
-# rTest <- phenR
-# rTest[rTest[]==1] <- apply(phenOut$dat[,,2], 1, median, na.rm = T)
+# rTest <- phenOut$raster
+# rTest[rTest[]==1] <- apply(phenOut$dat[,,1], 1, median, na.rm = T)
 # plot(rTest)
 
 } ## file exists
