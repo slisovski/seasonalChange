@@ -4,7 +4,7 @@ library(rgdal)
 library(rgeos)
 library(parallel)
 library(biwavelet)
-source('~/Documents/GitHub/seasonalChange/Scripts/functions.R', echo=FALSE)
+source('Scripts/functions.R', echo=FALSE)
 
 ## land mask
 lake <- read_sf("Data/GeoDat/ne_50m_lakes/ne_50m_lakes.shp")
@@ -18,24 +18,26 @@ pol <- rasterToPolygons(r0)
 
 
 ## batches
-batch_dir <- "/Users/slisovsk/Desktop/batches/"
-phen_dir  <- "/Users/slisovsk/Desktop/phenBatches/"
+batch_dir <- "/bioing/user/slisovsk/SeasonalChange/Results/Batches/"
+phen_dir  <- "/bioing/user/slisovsk/SeasonalChange/Results/phenBatches/"
 batches   <- list.files(batch_dir, pattern = ".rda")
 batchID   <- sapply(strsplit(batches, "_"), function(x) as.numeric(substring(x[[2]], 1, nchar(x[[2]]) -4)))
 load("Results/dateSequence.rda") 
 
 
 ## run
-plot(land$geometry, col = adjustcolor("grey90", alpha.f = 0.5))
-plot(pol, add = T)
+# plot(land$geometry, col = adjustcolor("grey90", alpha.f = 0.5))
+# plot(pol, add = T)
 # plot(lake$geometry, add =T)
+# centr <- do.call("rbind", lapply(1:length(pol), function(x) coordinates(gCentroid(pol[x,]))))
+# text(centr[batchID,1], centr[batchID,2], batchID, cex = 0.4)
 
-centr <- do.call("rbind", lapply(1:length(pol), function(x) coordinates(gCentroid(pol[x,]))))
-text(centr[batchID,1], centr[batchID,2], batchID, cex = 0.4)
 
-for(batch in batchID) {
+for(batch in batchID[sample(1:length(batchID))]) {
 
-load(paste0(batch_dir, "batch_", batch, ".rda"))
+if(!file.exists(paste0(phen_dir, "phenBatch_", batch, ".rda"))) { 
+  
+load(paste0(batch_dir, "Batch_", batch, ".rda"))
 
 onLand  <- apply(outBatch$crds[,-c(1:3, ncol(outBatch$crds))], 1, any) &
   !outBatch$crds[,ncol(outBatch$crds)] &
@@ -62,7 +64,7 @@ distM <- matrix(with(coordinates_dt, spatialrisk::haversine(y, x, i.y, i.x)),
 
 pxlPhen <- mclapply(which(onLand), function(pxl) {
   
-  # pxl <- which(onLand)[11000:11010][2]
+  # pxl <- which(onLand)[1]
   
   inbfr  <- which(inBatch)[which(distM[which(inBatch)==pxl,]<15000)]
 
@@ -73,13 +75,15 @@ pxlPhen <- mclapply(which(onLand), function(pxl) {
   weigth <- approx(c(0, max(dnorm(dst, 0, 4))), c(0,1), dnorm(dst, 0, 4))$y
 
   dat    <- outBatch$dat[inbfr,,]
-  evi    <- ifelse(!is.na(dat[,,2]) | dat[,,1] < -0.1 , NA, dat[,,1])
+  if(outBatch$crds[pxl, 2]>=0) {
+    evi    <- ifelse(!is.na(dat[,,2]) | dat[,,1] < -0.1 , NA, dat[,,1])
+  }  else evi    <- ifelse(dat[,,1] < -0.1 , NA, dat[,,1])
 
   # matplot(dates, t(evi), type= "o", lty = 1, lwd = 1, col = adjustcolor("darkgreen", alpha.f = 0.5), pch = 16)
   
   med <- apply(evi, 2, median , na.rm = T)
   
-  if(diff(quantile(med, prob = c(0.025,0.975), na.rm = T))>0.1) { ## diff ts > 0.1
+  if(diff(quantile(med, prob = c(0.025,0.975), na.rm = T))>0.15) { ## diff ts > 0.1
     
     wt <- biwavelet::wt(cbind(1:length(med), zoo::na.approx(med)))
     power  <- log2(wt$power.corr)
@@ -128,9 +132,11 @@ pxlPhen <- mclapply(which(onLand), function(pxl) {
       # lines(s$date, s[,-c(1:4)][,weigth==1], lwd = 4, col = "orange")
 
       dateSeg <- zoo::na.approx(s$date)
+      year    <- median(as.numeric(format(s$date, "%Y")), na.rm = T)
       
       if(length(dateSeg)>20) {
       
+        
       tmpDat <- subset(data.frame(x = rep(s$date, ncol(s)-4),
                                   y = unlist(t(c(s[,-c(1:4)]))),
                                   w = rep(weigth, each = nrow(s))), !is.na(y))
@@ -147,8 +153,6 @@ pxlPhen <- mclapply(which(onLand), function(pxl) {
       
       # apply(segs, 1, function(x) rect(dateSeg[x[1]], 0, dateSeg[x[3]], 1, col = adjustcolor("grey80", alpha.f = 0.2), border =  "grey10"))
       
-      year   <- median(as.numeric(format(s$date, "%Y")), na.rm = T)
-       
       if(!is.null(segs)) {      
                  
             if(nrow(segs)>1) {
@@ -234,20 +238,23 @@ pxlPhen <- mclapply(which(onLand), function(pxl) {
 }, mc.cores = max(5, detectCores()-10))
 
 ## period, max, amp, area, q10gub, q50gub, q10sen, q50sen
-phenA <- abind::abind(lapply(1:ncol(pxlPhen[[1]]), function(l) matrix(unlist(sapply(pxlPhen, function(x) x[,l])), ncol = nrow(pxlPhen[[1]]), byrow = T)), along = 3)
+phenA <- tryCatch(abind::abind(lapply(1:ncol(pxlPhen[[1]]), function(l) matrix(unlist(sapply(pxlPhen, function(x) x[,l])), ncol = nrow(pxlPhen[[1]]), byrow = T)), along = 3),
+                  error = function(e) NULL)
 
 phenR <- rasterFromXYZ(cbind(outBatch$crds[outBatch$crds[,3],1:2], 
                              (apply(outBatch$crds[,-c(1:3, ncol(outBatch$crds))], 1, any) &
-                             !outBatch$crds[,ncol(outBatch$crds)])[outBatch$crds[,3]]), crs = CRS("+proj=longlat"))
+                                !outBatch$crds[,ncol(outBatch$crds)])[outBatch$crds[,3]]), crs = CRS("+proj=longlat"))
 names(phenR) <- paste0("batch_", batch)
 
 phenOut <- list(dat = phenA, raster = phenR)
 
 save(phenOut, file = paste0(phen_dir, "phenBatch_", batch, ".rda"))
 
+
 # rTest <- phenR
-# rTest[rTest[]==1] <- apply(phenOut[,,2], 1, median, na.rm = T)
-# 
+# rTest[rTest[]==1] <- apply(phenOut$dat[,,2], 1, median, na.rm = T)
 # plot(rTest)
+
+} ## file exists
 
 }
