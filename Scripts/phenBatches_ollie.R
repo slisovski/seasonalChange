@@ -43,7 +43,7 @@ inBatch <- apply(outBatch$crds[,-c(1:3, ncol(outBatch$crds))], 1, any) &
 
 distM   <- suppressMessages(geodist(outBatch$crds[inBatch,1:2], measure = "cheap"))
 
-pxlPhen <- mclapply(which(onLand)[2737:2738], function(pxl) {
+pxlPhen <- mclapply(which(onLand), function(pxl) {
   
   inbfr  <- which(inBatch)[which(distM[which(inBatch)==pxl,]<15000)]
   dst    <- distM[which(inBatch)==pxl, which(inBatch)%in%inbfr]/1000
@@ -61,6 +61,7 @@ pxlPhen <- mclapply(which(onLand)[2737:2738], function(pxl) {
     wt     <- wt(cbind(1:length(med), na.approx(med)))
     power  <- log2(wt$power.corr)
     per    <- wt$period[which.max(apply(power, 1, median, na.rm = T))]
+    pow    <- wt$power[which.max(apply(power, 1, median, na.rm = T))]
     
     
     if(round(per,0)%in%c(42:62)) {
@@ -71,119 +72,133 @@ pxlPhen <- mclapply(which(onLand)[2737:2738], function(pxl) {
       } else period = NA
     }
     
-    if((diff(quantile(med, prob = c(0.025,0.975), na.rm = T))>0.15) & !is.na(period)) {
       
-      datCurve <- merge(data.frame(year = as.numeric(format(seq(min(dates), max(dates), by = "week"), "%Y")),
-                                   week = as.numeric(format(seq(min(dates), max(dates), by = "week"), "%U"))),
-                        data.frame(year = as.numeric(format(dates, "%Y")), week = as.numeric(format(dates, "%U")),
-                                   date = dates,
-                                   evi  = med, t(evi)), all.x = T)
+    datCurve <- merge(data.frame(year = as.numeric(format(seq(min(dates), max(dates), by = "week"), "%Y")),
+                                 week = as.numeric(format(seq(min(dates), max(dates), by = "week"), "%U"))),
+                      data.frame(year = as.numeric(format(dates, "%Y")), week = as.numeric(format(dates, "%U")),
+                                 date = dates,
+                                 evi  = med, pow = apply(power, 2, median, na.rm = T), t(evi)), all.x = T)
       
-      if(period == 1) {
+    if(period == 1) {
         fit0  <- optim(fn = lsCos, par = c(a = 1, b = 0), f = 52, Mx = na.approx(datCurve$evi) - median(datCurve$evi, na.rm = T), sd = 0.01)
         curve <- fit0$par[1]*cos(pi*((1:length(datCurve$evi))/(length(datCurve$evi)/((length(datCurve$evi)/52)*2))) +
                                    (pi+fit0$par[2])) +  mean(med, na.rm=T)
-      } else {
+    } else {
         fit0  <- optim(fn = lsCos, par = c(a = 1, b = 0), f = 26, Mx = na.approx(datCurve$evi) - median(datCurve$evi, na.rm = T), sd = 0.01)
         curve <- fit0$par[1]*cos(pi*((1:length(datCurve$evi))/(length(datCurve$evi)/((length(datCurve$evi)/26)*2))) +
                                    (pi+fit0$par[2])) +  mean(med, na.rm=T)
-      }
+    }
       
-      mins <- unique(c(1, which(diff(sign(diff(-curve)))==-2)+1, length(curve)))
-      maxs <- which(diff(sign(diff( curve)))==-2)+1
+    mins <- unique(c(1, which(diff(sign(diff(-curve)))==-2)+1, length(curve)))
+    maxs <- which(diff(sign(diff( curve)))==-2)+1
       
-      segL <- apply(do.call("rbind", lapply(maxs, function(x) mins[c(1:length(mins))[order(abs(x-mins))][1:2]]+c(-10,10))), 1,
-                    function(x) datCurve[ifelse(x[1]<1, 1, x[1]):ifelse(x[2]>length(curve), length(curve), x[2]),])
       
-      q50 <- median(sapply(segL, function(x) quantile(x[,4], prob = 0.5, na.rm = T)), na.rm = T)
+    if((diff(quantile(med, prob = c(0.025,0.975), na.rm = T))>0.15) & !is.na(period) & length(mins)>20 & length(maxs)>20) {
       
-      phen0 <- do.call("rbind", lapply(segL, function(s) {
-        
-        # s <- segL[[1]]
-        # matplot(s$date, s[,-c(1:4)], type= "l", lty = 1, lwd = 1, col = adjustcolor("darkgreen", alpha.f = 0.5), pch = 16)
-        # lines(s$date, s[,-c(1:4)][,weigth==1], lwd = 4, col = "orange")
-        
-        dateSeg <- na.approx(s$date)
-        year    <- median(as.numeric(format(s$date, "%Y")), na.rm = T)
-        
-        if(length(dateSeg)>20) {
+          segL <- apply(do.call("rbind", lapply(maxs, function(x) mins[c(1:length(mins))[order(abs(x-mins))][1:2]]+c(-10,10))), 1,
+                        function(x) datCurve[ifelse(x[1]<1, 1, x[1]):ifelse(x[2]>length(curve), length(curve), x[2]),])
           
-          tmpDat <- subset(data.frame(x = rep(s$date, ncol(s)-4),
-                                      y = unlist(t(c(s[,-c(1:4)]))),
-                                      w = rep(weigth, each = nrow(s))), !is.na(y))
+          q50 <- median(sapply(segL, function(x) quantile(x[,4], prob = 0.5, na.rm = T)), na.rm = T)
           
-          spl     <- smooth.spline(x = tmpDat$x, y = tmpDat$y, spar = 0.3, w = tmpDat$w)
-          xSmooth <- predict(spl, dateSeg)$y
-          peaks   <- FindPeaks(xSmooth)
-          
-          # lines(dateSeg, xSmooth, lwd = 6, col = "orange")
-          # abline(v = dateSeg[peaks], lty = 2, col = "grey80")
-          
-          pars    <- list(rel_amp_frac = 0.15, rel_peak_frac = 0.1, min_seg_amplitude = 0.15)
-          segs    <- tryCatch(do.call("rbind", GetSegs(peaks, xSmooth, pars)), error = function(e) NULL)
-          
-          # apply(segs, 1, function(x) rect(dateSeg[x[1]], 0, dateSeg[x[3]], 1, col = adjustcolor("grey80", alpha.f = 0.2), border =  "grey10"))
-          
-          if(!is.null(segs)) {
+          phen0 <- do.call("rbind", lapply(segL, function(s) {
             
-            if(nrow(segs)>1) {
+            # s <- segL[[1]]
+            # matplot(s$date, s[,-c(1:5)], type= "l", lty = 1, lwd = 1, col = adjustcolor("darkgreen", alpha.f = 0.5), pch = 16)
+            # lines(s$date, s[,-c(1:5)][,weigth==1], lwd = 4, col = "orange")
+            
+            dateSeg <- na.approx(s$date)
+            year    <- median(as.numeric(format(s$date, "%Y")), na.rm = T)
+            
+            if(length(dateSeg)>20) {
               
-              max_in  <- min(segs[order(xSmooth[segs[,2]], decreasing = T),2][1:2])
-              max_out <- max(segs[order(xSmooth[segs[,2]], decreasing = T),2][1:2])
+              tmpDat <- subset(data.frame(x = rep(s$date, ncol(s)-5),
+                                          y = unlist(t(c(s[,-c(1:5)]))),
+                                          w = rep(weigth, each = nrow(s))), !is.na(y))
               
-              seqRan  <- c(min(segs[order(xSmooth[segs[,2]], decreasing = T),1]),
-                           max(segs[order(xSmooth[segs[,2]], decreasing = T),3]))
+              spl     <- smooth.spline(x = tmpDat$x, y = tmpDat$y, spar = 0.3, w = tmpDat$w)
+              xSmooth <- predict(spl, dateSeg)$y
+              peaks   <- FindPeaks(xSmooth)
+              
+              # lines(dateSeg, xSmooth, lwd = 6, col = "orange")
+              # abline(v = dateSeg[peaks], lty = 2, col = "grey80")
+              
+              pars    <- list(rel_amp_frac = 0.15, rel_peak_frac = 0.1, min_seg_amplitude = 0.15)
+              segs    <- tryCatch(do.call("rbind", GetSegs(peaks, xSmooth, pars)), error = function(e) NULL)
+              pSeg    <- median(s$pow, na.rm = T)
+              
+              # apply(segs, 1, function(x) rect(dateSeg[x[1]], 0, dateSeg[x[3]], 1, col = adjustcolor("grey80", alpha.f = 0.2), border =  "grey10"))
+              
+              if(!is.null(segs)) {
+                
+                if(nrow(segs)>1) {
+                  
+                  max_in  <- min(segs[order(xSmooth[segs[,2]], decreasing = T),2][1:2])
+                  max_out <- max(segs[order(xSmooth[segs[,2]], decreasing = T),2][1:2])
+                  
+                  seqRan  <- c(min(segs[order(xSmooth[segs[,2]], decreasing = T),1]),
+                               max(segs[order(xSmooth[segs[,2]], decreasing = T),3]))
+                  
+                } else {
+                  
+                  max_in <- max_out  <- segs[2]
+                  seqRan <- segs[c(1,3)]
+                  
+                }
+                
+                max    <- as.numeric(format(as.POSIXct(dateSeg, origin = "1970-01-01")[max_in], "%j"))
+                amp    <- diff(range(xSmooth[seqRan[1]:seqRan[2]]))
+                
+                q10gup <- with(data.frame(t = dateSeg, y = xSmooth)[seqRan[1]:max_in,],  rev(t)[GetThresh(min(y) + diff(range(y))*0.1, rev(y), gup = F, first_greater = T)])
+                # abline(v = q10gup)
+                q50gup <- with(data.frame(t = dateSeg, y = xSmooth)[seqRan[1]:max_in,],  rev(t)[GetThresh(q50, rev(y), gup = F, first_greater = T)])
+                # abline(v = q50gup)
+                
+                q10sen <- with(data.frame(t = dateSeg, y = xSmooth)[max_out:seqRan[2],],  rev(t)[GetThresh(min(y) + diff(range(y))*0.1, rev(y), gup = T, first_greater = F)])
+                # abline(v = q10sen)
+                q50sen <- with(data.frame(t = dateSeg, y = xSmooth)[max_out:seqRan[2],],  rev(t)[GetThresh(q50, rev(y), gup = T, first_greater = F)])
+                # abline(v = q50sen)
+                
+                area   <- with(data.frame(t = 1:length(dateSeg), y = xSmooth)[seqRan[1]:seqRan[2],],
+                               auc(t, y, type = 'spline'))
+                
+                
+                out <- c(year = year, max = max, amp = round(amp, 2), area = round(area,2),
+                         as.numeric(format(as.POSIXct(c(q10gup, q50gup, q10sen, q50sen), origin = "1970-01-01"), "%j")))
+                out[5:6] <- ifelse(out[5:6]>=max, out[5:6] - 365, out[5:6])
+                out[7:8] <- ifelse(out[7:8]<=max, 365 + out[7:8], out[7:8])
+                
+                out
+                
+              } else {
+                c(year = year, per = per, max = max(xSmooth), pow = pSeg, amp = diff(range(xSmooth)), area = NA, rep(NA, 4))
+              }
               
             } else {
-              
-              max_in <- max_out  <- segs[2]
-              seqRan <- segs[c(1,3)]
-              
+              c(year = year, per = per, 
+                             max = as.numeric(quantile(s[,-c(1:5)][,weigth==1], prob = 0.975 , na.rm = T)), 
+                             pow = median(s$pow, na.rm = T),
+                             amp = as.numeric(diff(quantile(s[,-c(1:5)][,weigth==1], prob = c(0.025, 0.975)) , na.rm = T)), area = NA, rep(NA, 4))
             }
             
-            max    <- as.numeric(format(as.POSIXct(dateSeg, origin = "1970-01-01")[max_in], "%j"))
-            amp    <- diff(range(xSmooth[seqRan[1]:seqRan[2]]))
-            
-            
-            q10gup <- with(data.frame(t = dateSeg, y = xSmooth)[seqRan[1]:max_in,],  rev(t)[GetThresh(min(y) + diff(range(y))*0.1, rev(y), gup = F, first_greater = T)])
-            # abline(v = q10gup)
-            q50gup <- with(data.frame(t = dateSeg, y = xSmooth)[seqRan[1]:max_in,],  rev(t)[GetThresh(q50, rev(y), gup = F, first_greater = T)])
-            # abline(v = q50gup)
-            
-            q10sen <- with(data.frame(t = dateSeg, y = xSmooth)[max_out:seqRan[2],],  rev(t)[GetThresh(min(y) + diff(range(y))*0.1, rev(y), gup = T, first_greater = F)])
-            # abline(v = q10sen)
-            q50sen <- with(data.frame(t = dateSeg, y = xSmooth)[max_out:seqRan[2],],  rev(t)[GetThresh(q50, rev(y), gup = T, first_greater = F)])
-            # abline(v = q50sen)
-            
-            area   <- with(data.frame(t = 1:length(dateSeg), y = xSmooth)[seqRan[1]:seqRan[2],],
-                           auc(t, y, type = 'spline'))
-            
-            
-            out <- c(year = year, max = max, amp = round(amp, 2), area = round(area,2),
-                     as.numeric(format(as.POSIXct(c(q10gup, q50gup, q10sen, q50sen), origin = "1970-01-01"), "%j")))
-            out[5:6] <- ifelse(out[5:6]>=max, out[5:6] - 365, out[5:6])
-            out[7:8] <- ifelse(out[7:8]<=max, 365 + out[7:8], out[7:8])
-            
-            out
-            
-          } else {
-            c(year = year, max = NA, amp = NA, area = NA, rep(NA, 4))
-          }
-          
-        } else {
-          c(year = year, max = NA, amp = NA, area = NA, rep(NA, 4))
-        }
-        
       }))
       
-      
-    }  else {
-      phen0 = cbind(year = 1981:2020, max = NA, amp = NA, area = NA, matrix(NA, ncol = 4, nrow = length(1981:2020)))
+      }  else {
+        phen0 = cbind(year = 1981:2020, per  = per,
+                      max  = as.numeric(diff(quantile(evi[weigth==1,], prob = c(0.025, 0.975) , na.rm = T))), 
+                      pow  = pow,
+                      amp  = as.numeric(quantile(evi[weigth==1,], prob = 0.975, na.rm = T)), 
+                      area = NA, matrix(NA, ncol = 4, nrow = length(1981:2020)))
     } 
+      
     
   } else {
-    phen0 = cbind(year = 1981:2020, max = NA, amp = NA, area = NA, matrix(NA, ncol = 4, nrow = length(1981:2020)))
+    phen0 = cbind(year = 1981:2020, per  = NA,
+                                    max  = as.numeric(diff(quantile(evi[weigth==1,], prob = c(0.025, 0.975) , na.rm = T))), 
+                                    pow  = NA,
+                                    amp  = as.numeric(quantile(evi[weigth==1,], prob = 0.975, na.rm = T)), 
+                                    area = NA, matrix(NA, ncol = 4, nrow = length(1981:2020)))
   }
+  
   
   if(period==1) {
     phen <- aggregate(phen0, by = list(phen0[,1]), median)[,-1]
@@ -204,8 +219,6 @@ pxlPhen <- mclapply(which(onLand)[2737:2738], function(pxl) {
   
 }, mc.cores = 4)
 
-# tt <- lapply(pxlPhen, function(x) is.data.frame(x))    
-# pxlPhen[[(!tt)[1]]]
 
 phenA <- tryCatch(abind::abind(lapply(1:ncol(pxlPhen[[1]]), function(l) matrix(unlist(sapply(pxlPhen, function(x) x[,l])), ncol = nrow(pxlPhen[[1]]), byrow = T)), along = 3),
                   error = function(e) NULL)
