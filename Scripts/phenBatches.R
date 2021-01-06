@@ -4,12 +4,16 @@ library(rgdal)
 library(rgeos)
 library(parallel)
 library(biwavelet)
+library(geodist)
 source('Scripts/functions.R', echo=FALSE)
 
-## land mask
-lake <- read_sf("Data/GeoDat/ne_50m_lakes/ne_50m_lakes.shp")
-land <- read_sf("Data/GeoDat/ne_50m_land//ne_50m_land.shp")
-lbox <- st_bbox(land, crs = 4326) %>% st_as_sfc()
+### map 
+land <- read_sf("Data/GeoDat/ne_50m_land//ne_50m_land.shp") %>% st_geometry()
+lbox <- st_bbox(c(xmin = -20, xmax = 50, ymin = 20, ymax = 75), crs = 4326) %>% st_as_sfc()
+r0 <- raster(extent(st_bbox(land)[c(1,3,2,4)]), res = 5)
+pol <- st_as_sfc(rasterToPolygons(r0)) %>% st_set_crs(4326)
+inEurope <- suppressMessages(unlist(st_intersects(lbox, pol)))
+
 
 r0 <- raster(extent(st_bbox(land)[c(1,3,2,4)]), res = 5)
 # plot(rasterToPolygons(r0))
@@ -35,7 +39,7 @@ load("Results/dateSequence.rda")
 
 for(batch in batchID[sample(1:length(batchID))]) {
 
-  # batch = 1194
+  # batch = 1060
   
 if(!file.exists(paste0(phen_dir, "phenBatch_", batch, ".rda"))) { 
   
@@ -57,12 +61,7 @@ st_crds  <- st_sfc(lapply(1:nrow(outBatch$crds), function(x) st_point(as.numeric
 # points(outBatch$crds[inBatch,1:2], cex = 0.3, pch = 16, col = "black")
 # points(outBatch$crds[onLand,1:2], cex = 0.3, pch = 16, col = "red")
 
-coordinates_dt <- optiRum::CJ.dt(data.table::as.data.table(outBatch$crds[inBatch,1:2]),
-                                 data.table::as.data.table(outBatch$crds[inBatch,1:2]))
-
-distM <- matrix(with(coordinates_dt, spatialrisk::haversine(y, x, i.y, i.x)), 
-                ncol = sum(inBatch), nrow = sum(inBatch))
-
+distM <- suppressMessages(geodist(outBatch$crds[inBatch,1:2], measure = "cheap"))
 
 pxlPhen <- mclapply(which(onLand), function(pxl) {
   

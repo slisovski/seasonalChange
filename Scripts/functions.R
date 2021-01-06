@@ -16,6 +16,10 @@ FindPeaks <- function(x, mag_order=T){
 }
 
 GetSegs <- function(peaks, x, pars, peak=NA){
+  
+  # plot(x, type = "o", pch = 16, cex = 1.5, col ="orange", lwd = 3)
+  # abline(v = peaks, lty = 2)
+  
   # identifies valid increasing-decreasing segments in x subject to the parameters in pars
   # returns a list of segments: c(start, peak, end). DON'T call directly w/ peak!=NA
   # NOTE: returned segments will not necessarily be in order, and may not completely partition x
@@ -34,11 +38,12 @@ GetSegs <- function(peaks, x, pars, peak=NA){
   # initialize seg_thresh and peak_thresh to zero
   # determine the "global max/min", if peak_frac is specified, set it, if amp_frac is specified, set it
   # if min_seg_amplitude is set, choose the max of that and amp_frac
+  
   seg_thresh <- peak_thresh <- 0
   global_max <- max(x, na.rm=T)
   global_min <- min(x, na.rm=T)
+  
   if(!is.na(pars$rel_amp_frac)) seg_thresh <- (global_max - global_min) * pars$rel_amp_frac
-  #if(!is.na(pars$rel_peak_frac)) peak_thresh <- global_max * pars$rel_peak_frac
   if(!is.na(pars$min_seg_amplitude)) seg_thresh <- max(pars$min_seg_amplitude, seg_thresh)
   
   # checks if the period preceding the peak covers enough amplitude
@@ -48,11 +53,18 @@ GetSegs <- function(peaks, x, pars, peak=NA){
   if(length(previous_peaks) > 0) previous_peak <- max(previous_peaks)
   search_start <- max(1, peak - pars$max_increase_length, previous_peak, na.rm=T)
   search_end <- peak
+  
+  # abline(v = c(search_start, search_end), lty = 2)
   # get the index of the closest minimum value within the search window
   # NOTE: should maybe retrieve the troughs here with FindPeaks(-x) instead
   # in the event of repeated minimum values, we take the closest one here
+  # troughs  <- FindPeaks(-x)
+
+  
   inc_min_ind <- max(which(x[search_start:search_end] == min(x[search_start:search_end], na.rm=T)) + search_start - 1, na.rm=T)
+  # inc_min_ind <- max(troughs[troughs>=search_start & troughs<=search_end])
   seg_amp <- x[peak] - x[inc_min_ind] # get the increasing segment amplitude
+  
   # if(seg_amp > pars$min_seg_amplitude){
   if((seg_amp >= seg_thresh) & (x[peak] >= peak_thresh)){
     # check for a valid decreasing segment
@@ -63,8 +75,9 @@ GetSegs <- function(peaks, x, pars, peak=NA){
     search_start <- peak
     search_end <- min(length(x), peak + pars$max_decrease_length, next_peak, na.rm=T)
     # get the index of the closest minimum value within the search window
-    # NOTE: see above note about finding troughs instead
-    dec_min_ind <- min(which(x[search_start:search_end] == min(x[search_start:search_end], na.rm=T)) + search_start - 1, na.rm=T)
+    troughs  <- FindPeaks(-x)
+    dec_min_ind <- min(troughs[troughs>=search_start & troughs<=search_end])
+    # dec_min_ind <- min(which(x[search_start:search_end] == min(x[search_start:search_end], na.rm=T)) + search_start - 1, na.rm=T)
     seg_amp <- x[peak] - x[dec_min_ind] # get the decreasing segment amplitude
     # if(seg_amp > pars$min_seg_amplitude){
     if(seg_amp >= seg_thresh){

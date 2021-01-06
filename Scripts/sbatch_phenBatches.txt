@@ -1,11 +1,11 @@
 #!/bin/bash
 
-#SBATCH --job-name=phenBatch
+#SBATCH --job-name=phenB
 #SBATCH --time=12:00:00
-#SBATCH --array=1-1033%0.025
-#SBATCH --output=slurmDir/array_%A-%a.out
-#SBATCH --cpus-per-task=5
-#SBATCH -p smp
+#SBATCH --array=18-19%25
+#SBATCH --output=slurmDir/array_%A_%a.out
+#SBATCH --cpus-per-task=20
+#SBATCH --mem=35000M
 
 i=${SLURM_ARRAY_TASK_ID}
 
