@@ -58,6 +58,8 @@ inBatch_sf = st_as_sf(outBatch$crds[,1:2], coords = c("x", "y"), crs = 4326, agr
 
 pxlPhen <- mclapply(which(inBatch_sf$onLand), function(pxl) {
   
+  # pxl <- which(inBatch_sf$onLand)[60:100][28]
+  
   dst   <- suppressMessages(geodist(st_coordinates(inBatch_sf$geometry[inBatch_sf$inBatch]), st_coordinates(inBatch_sf$geometry[pxl,]), measure = "cheap"))/1000
   inbfr <- which(dst<15)
 
@@ -116,27 +118,27 @@ pxlPhen <- mclapply(which(inBatch_sf$onLand), function(pxl) {
 
           q50 <- median(sapply(segL, function(x) quantile(x[,5], prob = 0.5, na.rm = T)), na.rm = T)
 
-          phen0 <- do.call("rbind", lapply(segL, function(s) {
+          phen0 <- do.call("rbind", mclapply(segL, function(s) {
 
-            # s <- segL[[7]]
+            # s <- segL[[77]]
             # matplot(s$date, s[,-c(1:5)], type= "l", lty = 1, lwd = 1, col = adjustcolor("darkgreen", alpha.f = 0.5), pch = 16, xaxt = "n")
             # axis(1, at = as.numeric(seq(min(s$date, na.rm = T), max(s$date, na.rm = T), length = 10)), labels = format(seq(min(s$date, na.rm = T), max(s$date, na.rm = T), length = 10), "%Y-%m-%d"))
 
             dateSeg <- na.approx(s$date)
             year    <- median(as.numeric(format(s$date, "%Y")), na.rm = T)
 
-            pwL  <- apply(log2(abs(wt$power/wt$sigma2))[,s$id], 1, median, na.rm = T)
-            sig  <- apply(wt$signif[,s$id], 1, median, na.rm = T)
-
-            wt.pks <- FindPeaks(pwL)
-            wt.s   <- cbind(pwL[wt.pks], wt$period[wt.pks], (sig>=1)[wt.pks])
-            wt.sig <- rbind(wt.s[wt.s[,3]==1,], matrix(0, ncol = 3, nrow = 3))[order(c(wt.s[wt.s[,3]==1,1], rep(0,3)), decreasing = T),][1:2,]
-
-            # plot(wt$period, pwL, type = "o")
-            # points(wt$period, pwL, col = ifelse(sig>=1, "red", "grey90"), pch = 16)
-
-
             if(length(dateSeg)>20 & sum(is.na(s[,-c(1:5)][,weigth==1]))<nrow(s)*0.33) {
+                
+                pwL  <- apply(log2(abs(wt$power/wt$sigma2))[,s$id], 1, median, na.rm = T)
+                sig  <- apply(wt$signif[,s$id], 1, median, na.rm = T)
+    
+                wt.pks <- FindPeaks(pwL)
+                wt.s   <- cbind(pwL[wt.pks], wt$period[wt.pks], (sig>=1)[wt.pks])
+                wt.sig <- rbind(wt.s[wt.s[,3]==1,], matrix(0, ncol = 3, nrow = 3))[order(c(wt.s[wt.s[,3]==1,1], rep(0,3)), decreasing = T),][1:2,]
+    
+                # plot(wt$period, pwL, type = "o")
+                # points(wt$period, pwL, col = ifelse(sig>=1, "red", "grey90"), pch = 16)
+
 
     #           tmpDat <- subset(data.frame(x = rep(s$date, ncol(s)-5),
     #                                       y = unlist(t(c(s[,-c(1:5)]))),
@@ -231,12 +233,12 @@ pxlPhen <- mclapply(which(inBatch_sf$onLand), function(pxl) {
     #               max = NA, 
     #               amp = NA, area = NA, rep(NA, 6))
                    c(year = year,
-                     per1 = ifelse(wt.sig[1,3], wt.sig[1,2], NA),
-                     sig1 = ifelse(wt.sig[1,3], wt.sig[1,1], NA),
-                     per2 = ifelse(wt.sig[2,3], wt.sig[2,2], NA),
-                     sig2 = ifelse(wt.sig[2,3], wt.sig[2,1], NA),
-                     max = NA,
-                     amp = NA)
+                     per1 = NA,
+                     sig1 = NA,
+                     per2 = NA,
+                     sig2 = NA,
+                     max  = NA,
+                     amp  = NA)
               }
     #           
     #         } else {
@@ -304,7 +306,7 @@ pxlPhen <- mclapply(which(inBatch_sf$onLand), function(pxl) {
   
   merge(data.frame(year = 1981:2020), as.data.frame(phen), all.x = T)[,-1]
   
-}, mc.cores = 20)
+}, mc.cores = 5)
 
 # tt <- sapply(pxlPhen, function(x) is.data.frame(x))
 # pxlPhen[[which(!tt)[1]]]
