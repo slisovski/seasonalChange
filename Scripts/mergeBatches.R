@@ -54,5 +54,4 @@ plot(landC, col = "grey90", border = NA)
 plot(pol[batchID], add = T, col = adjustcolor("orange", alpha.f = 0.5))
 crds <- st_coordinates(st_centroid(pol))
 text(crds[batchID,1], crds[batchID,2], batchID, cex = 0.5)
-plot(datRC[[5]], add = T)
-
+plot(datRC[[2]], add = T)

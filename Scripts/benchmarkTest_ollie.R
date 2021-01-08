@@ -263,9 +263,9 @@ batch <- batchID[batchID%in%inBBB][as.numeric(args[1])]
   inBatch_sf$inBatch <- apply(outBatch$crds[,-c(1:3, ncol(outBatch$crds))], 1, any) &
     !outBatch$crds[,ncol(outBatch$crds)]
 
-  a <- Sys.time()
+  # a <- Sys.time()
   pxlPhen <- mclapply(which(inBatch_sf$onLand), evalPxl, mc.cores = 15)
-  Sys.time() - a
+  # Sys.time() - a
   
   tt <- sapply(pxlPhen, function(x) is.data.frame(x))
   pxlPhen[[which(!tt)[1]]]
@@ -278,7 +278,7 @@ batch <- batchID[batchID%in%inBBB][as.numeric(args[1])]
                                   !outBatch$crds[,ncol(outBatch$crds)])[outBatch$crds[,3]]), crs = CRS("+proj=longlat"))
   
   # r_test <- phenR; r_test[] <- NA
-  # r_test[phenR[]==1] <-  apply(phenA, c(1,3), median, na.rm = T)[,2]
+  # r_test[phenR[]==1][1:500] <-  apply(phenA, c(1,3), median, na.rm = T)[,9]
   # plot(r_test)
   
   names(phenR) <- paste0("batch_", batch)
