@@ -13,7 +13,8 @@ pol    <- st_as_sfc(rasterToPolygons(r0)) %>% st_set_crs(4326)
 
 
 ## batches
-phen_dir  <- "/Users/slisovsk/Google Drive/SeasonalChange/phenBatchesRDA/"
+# phen_dir  <- "/Users/slisovsk/Google Drive/SeasonalChange/phenBatchesRDA/"
+phen_dir  <- "/Users/slisovski/Google Drive/SeasonalChange/phenBatchesRDA/"
 batches   <- list.files(phen_dir, pattern = ".rda")
 batchID   <- sapply(strsplit(batches, "_"), function(x) as.numeric(substring(x[[2]], 1, nchar(x[[2]]) -4)))
 # euBatch   <- batchID[which(batchID%in%inEurope)]
@@ -50,8 +51,8 @@ landC <- land %>% st_intersection(lbox)
 
 # 1: per1, 2: sig1, 3: per2, 4: sig2, 5: per3, 6: sig3, 7: max, 8: amp, 9: area, 10: st1, 11: st2, 12: en2, 13: en1 
 plot(landC, col = "grey90", border = NA)
-plot(datRC[[6]], add = T)
+plot(pol[batchID], add = T, col = adjustcolor("orange", alpha.f = 0.5))
+crds <- st_coordinates(st_centroid(pol))
+text(crds[batchID,1], crds[batchID,2], batchID, cex = 0.5)
+plot(datRC[[5]], add = T)
 
-plot(pol[batchID], add = T)
-# crds <- st_coordinates(st_centroid(pol))
-text(crds[,1], crds[,2], 1:nrow(crds), cex = 0.5)

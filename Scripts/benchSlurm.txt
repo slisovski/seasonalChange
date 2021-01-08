@@ -1,0 +1,9 @@
+#!/bin/bash
+
+#SBATCH --job-name=phenBench
+#SBATCH --time=12:00:00
+#SBATCH --output=slurmDir/array_%A_%a.out
+#SBATCH --cpus-per-task=20
+#SBATCH --mem=100000M
+
+srun Rscript Scripts/benchmarkTest_ollie.R

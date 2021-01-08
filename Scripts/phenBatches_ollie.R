@@ -39,9 +39,8 @@ batchID   <- sapply(strsplit(batches, "_"), function(x) as.numeric(substring(x[[
 load("/work/ollie/slisovsk/Projects/SeasonalChange/Results/dateSequence.rda") 
 
 batch <- batchID[batchID%in%inBBB][as.numeric(args[1])]
-# batch <- batchID[as.numeric(args[1])]
 
-# if(!file.exists(paste0(phen_dir, "phenBatch_", batch, ".rda"))) {
+if(!file.exists(paste0(phen_dir, "phenBatch_", batch, ".rda"))) {
 
 load(paste0(batch_dir, "Batch_", batch, ".rda"))
 
@@ -58,7 +57,7 @@ inBatch_sf = st_as_sf(outBatch$crds[,1:2], coords = c("x", "y"), crs = 4326, agr
 
 pxlPhen <- mclapply(which(inBatch_sf$onLand), function(pxl) {
   
-  # pxl <- which(inBatch_sf$onLand)[60:100][28]
+  # pxl <- which(inBatch_sf$onLand)[28]
   
   dst   <- suppressMessages(geodist(st_coordinates(inBatch_sf$geometry[inBatch_sf$inBatch]), st_coordinates(inBatch_sf$geometry[pxl,]), measure = "cheap"))/1000
   inbfr <- which(dst<15)
@@ -306,7 +305,7 @@ pxlPhen <- mclapply(which(inBatch_sf$onLand), function(pxl) {
   
   merge(data.frame(year = 1981:2020), as.data.frame(phen), all.x = T)[,-1]
   
-}, mc.cores = 5)
+}, mc.cores = 15)
 
 # tt <- sapply(pxlPhen, function(x) is.data.frame(x))
 # pxlPhen[[which(!tt)[1]]]
@@ -336,5 +335,4 @@ save(phenOut, file = paste0(phen_dir, "phenBatch_", batch, ".rda"))
 
 drive_upload(paste0(phen_dir, "phenBatch_", batch, ".rda"),
              path = "SeasonalChange/phenBatchesRDA/", name = paste0("phenBatch_", batch, ".rda"), verbose = FALSE, overwrite = T)
-
-# } ## file exists
+} ## file exists
