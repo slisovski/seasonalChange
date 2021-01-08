@@ -28,10 +28,10 @@ medDat <- do.call("rbind", mclapply(batchID, function(x) {
   load(paste0(phen_dir, batches[which(batchID==x)]))
   
   ind <- unlist(raster::extract(r_ind, as(pol[x,], "Spatial")))
-  out <- cbind(ind, matrix(ncol = 6, nrow = length(ind)))
+  out <- cbind(ind, matrix(ncol = 13, nrow = length(ind)))
   
   if(!is.null(phenOut$dat)) {
-    out[phenOut$raster[]==1,2:7] <- apply(phenOut$dat, c(1,3), median, na.rm = T)
+    out[phenOut$raster[]==1,2:14] <- apply(phenOut$dat, c(1,3), median, na.rm = T)
   }
 
   out
