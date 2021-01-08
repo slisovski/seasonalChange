@@ -1,12 +1,11 @@
 #!/bin/bash
 
 #SBATCH --job-name=phenB
-#SBATCH --time=12:00:00
-#SBATCH --array=1-15%50
+#SBATCH --array=1-10%100
 #SBATCH --output=slurmDir/array_%A_%a.out
 #SBATCH --cpus-per-task=15
-#SBATCH --mem=70000M
+#SBATCH --mem=35000M
 
 i=${SLURM_ARRAY_TASK_ID}
 
-srun Rscript Scripts/phenBatches_ollie.R ${i}
+srun Rscript Scripts/benchmarkTest_ollie.R ${i}

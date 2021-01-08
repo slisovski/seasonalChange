@@ -13,8 +13,8 @@ pol    <- st_as_sfc(rasterToPolygons(r0)) %>% st_set_crs(4326)
 
 
 ## batches
-# phen_dir  <- "/Users/slisovsk/Google Drive/SeasonalChange/phenBatchesRDA/"
-phen_dir  <- "/Users/slisovski/Google Drive/SeasonalChange/phenBatchesRDA/"
+phen_dir  <- "/Users/slisovsk/Google Drive/SeasonalChange/phenBatchesRDA/"
+# phen_dir  <- "/Users/slisovski/Google Drive/SeasonalChange/phenBatchesRDA/"
 batches   <- list.files(phen_dir, pattern = ".rda")
 batchID   <- sapply(strsplit(batches, "_"), function(x) as.numeric(substring(x[[2]], 1, nchar(x[[2]]) -4)))
 # euBatch   <- batchID[which(batchID%in%inEurope)]
