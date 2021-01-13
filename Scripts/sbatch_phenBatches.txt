@@ -1,7 +1,8 @@
 #!/bin/bash
 
 #SBATCH --job-name=phenB
-#SBATCH --array=1-10%100
+#SBATCH --time=03:00:00
+#SBATCH --array=1-36%50
 #SBATCH --output=slurmDir/array_%A_%a.out
 #SBATCH --cpus-per-task=15
 #SBATCH --mem=35000M
