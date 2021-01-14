@@ -3,21 +3,21 @@ library(raster)
 library(ncdf4)
 library(rgdal)
 library(parallel)
-library(pbmcapply)
+library(mcapply)
 
 ## land mask
-lake <- read_sf("Data/GeoDat/ne_50m_lakes/ne_50m_lakes.shp")
-land <- read_sf("Data/GeoDat/ne_50m_land//ne_50m_land.shp")
+lake <- read_sf("Data/GeoDat/ne_50m_lakes/ne_50m_lakes.shp") %>% st_union()
+land <- read_sf("Data/GeoDat/ne_50m_land//ne_50m_land.shp") %>% st_union()
 lbox <- st_bbox(land, crs = 4326) %>% st_as_sfc()
 
 ###############
 ## batch ######
 ###############
 
-r0 <- raster(extent(st_bbox(land)[c(1,3,2,4)]), res = 5)
-# plot(rasterToPolygons(r0))
+rPol <- raster(extent(st_bbox(land)[c(1,3,2,4)]), res = 5)
+# plot(rasterToPolygons(rPol))
 # plot(land$geometry, add = T)
-pol <- rasterToPolygons(r0)
+pol <- rasterToPolygons(rPol)
 
 ###############
 ## VHP data ###
@@ -42,44 +42,51 @@ r0 <- raster(paste0(pathVHP, fls[[1]]))
 r0[] <- NA 
 names(r0) <- "phenRaster_empty"
 
-writeRaster(r0,'Results/phenRaster.tif',options=c('TFW=YES'))
+# writeRaster(r0,'Results/phenRaster.tif',options=c('TFW=YES'))
 
 ##############
 ## Snow data ##
 ###############
-dat <- nc_open("Data/nhsce_v01r01_19661004_20201102.nc")
 
-## "days since 1966-10-03"
-t <- ncvar_get(dat, "time")
-z <- ncvar_get(dat, "snow_cover_extent")
-ylat <- ncvar_get(dat, "longitude")
-xlon <- ncvar_get(dat, "latitude")
+fls.gz     <- list.files("/Users/slisovsk/Dropbox/Data/RemoteSensedData/IMS_DailyNHSnowIceAnalysis/24km/", pattern = ".asc.gz", recursive = T,  full.names = T)[-c(1:693)]
+datesSnow  <- as.Date(as.POSIXct(unlist(lapply(strsplit(fls.gz, "ims"), function(x) strsplit(x[[2]], "_24km")))[c(TRUE, FALSE)], format = "%Y%j"))
 
-### Projection and raster extent
-lon <- raster(ylat)
-lat <- raster(xlon)
+weeks      <- cbind(as.numeric(format(datesSnow, "%Y")), as.numeric(format(datesSnow, "%U")))
 
-start <- as.POSIXct("1966-10-03", "GMT")
-snowD <- start + ((t-6)*24*60*60)
+weekStack <- do.call("stack", lapply(unique(weeks[,2]), function(x) {
 
-## prj
-prj <- "+proj=stere +lat_0=90 +lon_0=-0 +a=6371200 +b=6371200 +units=m +no_defs"
-xy  <- project(cbind(lon[], lat[]), prj) 
+  rS <- do.call("stack", lapply(which(weeks[,2]==x), function(w) {
+    tab0 <- readLines(fls.gz[w])
+    ind  <- unlist(suppressWarnings(parallel::mclapply(tab0, function(x) is.na(as.numeric(gsub(" ", "", x))), mc.cores = 5)))
+    tab  <- tab0[-which(ind)]
 
-r_snow <- raster(xmn = min(xy[,1]), xmx = max(xy[,2]), ymn = min(xy[,1]), ymx = max(xy[,2]), 
-                 ncol = ncol(lon), nrow = ncol(lon), crs = CRS(prj))
+    z = do.call("rbind", parallel::mclapply(tab, function(.line) as.numeric(strsplit(.line, '')[[1]]), mc.cores = 5))
+    r0 <- raster(z[nrow(z):1,])
+    r0[] <- ifelse(r0[]==4, 1, NA)
+    r0
+  }))
 
-nc_close(dat)
+  tt <- rS[[1]]; tt[] <- apply(rS[], 1, function(x) sum(x, na.rm = T)/length(x))
+  extent(tt) <- c(-12126597.0, -12126597.0 + 1024*23684.997, -12126840.0, -12126597.0 + 1024*23684.997)
+  proj4string(tt) <- "+proj=stere +lat_0=90 +lat_ts=60 +lon_0=-80 +k=1 +x_0=0 +y_0=0 +a=6378137 +b=6356257 +units=m +no_defs"
+
+  tt
+}))
+
+names(weekStack) <- paste0("V_", unique(weeks[,2]))
+save(weekStack, file = "Results/weekStack_snow.rda")
+
+load("Results/weekStack_snow.rda")
 
 ####################
 ## create batches ##
 ####################
 
-plot(land$geometry, col = adjustcolor("grey90", alpha.f = 0.5))
-plot(rasterToPolygons(r0), add = T)
+plot(land, col = adjustcolor("grey90", alpha.f = 0.5), add = F)
+plot(pol, add = T)
 
 for(p in 1:length(pol)) {
-  
+
   plot(pol[p,], add = T, col = adjustcolor("orange", alpha.f = 0.25))
   
   ### VHP within batch extent
@@ -95,36 +102,42 @@ for(p in 1:length(pol)) {
     crds     <- coordinates(r_out)
     st_crds  <- st_sfc(lapply(1:nrow(crds), function(x) st_point(crds[x,])), crs = 4326)
     
-    onLand   <- suppressMessages(st_intersects(st_crds, land, sparse = F))
+    onLand   <- as.vector(suppressMessages(st_intersects(st_crds, land, sparse = F)))
+    
+    # plot(st_crds, pch = 16, col = "grey80", cex = 0.7)
+    # plot(st_crds[onLand], pch= 16, cex = 0.4, add = T)
+    
+    snow     <- extract(weekStack, st_coordinates(st_crds %>% st_transform(proj4string(weekStack))))
     
     if(any(onLand)) {
       
-      inLake   <- apply(suppressMessages(st_intersects(st_crds, lake$geometry, sparse = F)), 1, any)
+      inLake   <- as.vector(suppressMessages(st_intersects(st_crds, lake, sparse = F)))
       
       inPol    <- suppressMessages(st_intersects(st_crds, st_as_sfc(pol[p,]) %>% st_set_crs(4326), sparse = F))
       outBatch <- list(crds = data.frame(crds, indBatch = inPol, land = onLand, lake = inLake))
       
       ## loop over dates
-      parOut <- pbmclapply(1:length(fls), function(f) {
+      parOut <- do.call("cbind", mclapply(1:length(fls), function(f) {
         
         crp <- crop(raster(paste0(pathVHP, fls[f])), polE)
         
-        if(any(crds[,2]<0)) {
-          snow <- rasterize(xy, r_snow, field = t(z[,,which.min(abs(snowD - dates[f]))]))
-          sOut <- extract(snow, project(crds, prj))
-        } else sOut <- rep(NA, nrow(crds))
+        # if(any(crds[,2]>0)) {
+        #   snow <- rasterize(xy, r_snow, field = t(z[,,which.min(abs(snowD - dates[f]))]))
+        #   sOut <- extract(snow, project(crds, prj))
+        # } else sOut <- rep(NA, nrow(crds))
         
-        array(c(crp[], ifelse(is.na(sOut) | sOut<1, NA, 1)), dim = c(nrow(crds),1,2))
+        crp[]
         
-      }, mc.cores = 5)
+      }, mc.cores = 5))
       
-      outBatch$dat <- abind::abind(parOut, along = 2)
+      outEviSnow <- abind::abind(parOut, mapply(function(w) snow[,w], w = as.numeric(format(dates, "%U"))[1:5]), along = 3)
+      
+      outBatch$dat <- outEviSnow
       save(outBatch, file = paste0("Results/Batches/Batch_", p, ".rda"))
       
     }
     
   }
-  
   
 }
 
