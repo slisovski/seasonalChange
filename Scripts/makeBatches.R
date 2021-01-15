@@ -23,7 +23,7 @@ pol <- rasterToPolygons(rPol)
 ## VHP data ###
 ###############
 
-pathVHP <- "/Volumes/bioing/user/slisovsk/VHP_SM_SMN/"
+pathVHP <- "/bioing/user/slisovsk/VHP_SM_SMN/"
 
 fls  <- list.files(pathVHP)
 dts  <- cbind(as.numeric(substr(sapply(strsplit(fls, "[.]"), function(x) x[[5]]), 2, 5)),
@@ -48,32 +48,32 @@ names(r0) <- "phenRaster_empty"
 ## Snow data ##
 ###############
 
-fls.gz     <- list.files("/Users/slisovsk/Dropbox/Data/RemoteSensedData/IMS_DailyNHSnowIceAnalysis/24km/", pattern = ".asc.gz", recursive = T,  full.names = T)[-c(1:693)]
-datesSnow  <- as.Date(as.POSIXct(unlist(lapply(strsplit(fls.gz, "ims"), function(x) strsplit(x[[2]], "_24km")))[c(TRUE, FALSE)], format = "%Y%j"))
-
-weeks      <- cbind(as.numeric(format(datesSnow, "%Y")), as.numeric(format(datesSnow, "%U")))
-
-weekStack <- do.call("stack", lapply(unique(weeks[,2]), function(x) {
-
-  rS <- do.call("stack", lapply(which(weeks[,2]==x), function(w) {
-    tab0 <- readLines(fls.gz[w])
-    ind  <- unlist(suppressWarnings(parallel::mclapply(tab0, function(x) is.na(as.numeric(gsub(" ", "", x))), mc.cores = 5)))
-    tab  <- tab0[-which(ind)]
-
-    z = do.call("rbind", parallel::mclapply(tab, function(.line) as.numeric(strsplit(.line, '')[[1]]), mc.cores = 5))
-    r0 <- raster(z[nrow(z):1,])
-    r0[] <- ifelse(r0[]==4, 1, NA)
-    r0
-  }))
-
-  tt <- rS[[1]]; tt[] <- apply(rS[], 1, function(x) sum(x, na.rm = T)/length(x))
-  extent(tt) <- c(-12126597.0, -12126597.0 + 1024*23684.997, -12126840.0, -12126597.0 + 1024*23684.997)
-  proj4string(tt) <- "+proj=stere +lat_0=90 +lat_ts=60 +lon_0=-80 +k=1 +x_0=0 +y_0=0 +a=6378137 +b=6356257 +units=m +no_defs"
-
-  tt
-}))
-
-names(weekStack) <- paste0("V_", unique(weeks[,2]))
+# fls.gz     <- list.files("/bioing/user/slisovsk/24km/", pattern = ".asc.gz", recursive = T,  full.names = T)[-c(1:693)]
+# datesSnow  <- as.Date(as.POSIXct(unlist(lapply(strsplit(fls.gz, "ims"), function(x) strsplit(x[[2]], "_24km")))[c(TRUE, FALSE)], format = "%Y%j"))
+# 
+# weeks      <- cbind(as.numeric(format(datesSnow, "%Y")), as.numeric(format(datesSnow, "%U")))
+# 
+# weekStack <- do.call("stack", lapply(unique(weeks[,2]), function(x) {
+# 
+#   rS <- do.call("stack", mclapply(which(weeks[,2]==x), function(w) {
+#     tab0 <- readLines(fls.gz[w])
+#     ind  <- unlist(suppressWarnings(parallel::mclapply(tab0, function(x) is.na(as.numeric(gsub(" ", "", x))), mc.cores = 2)))
+#     tab  <- tab0[-which(ind)]
+# 
+#     z = do.call("rbind", parallel::mclapply(tab, function(.line) as.numeric(strsplit(.line, '')[[1]]), mc.cores = 2))
+#     r0 <- raster(z[nrow(z):1,])
+#     r0[] <- ifelse(r0[]==4, 1, NA)
+#     r0
+#   }, mc.cores = 10))
+# 
+#   tt <- rS[[1]]; tt[] <- apply(rS[], 1, function(x) sum(x, na.rm = T)/length(x))
+#   extent(tt) <- c(-12126597.0, -12126597.0 + 1024*23684.997, -12126840.0, -12126597.0 + 1024*23684.997)
+#   proj4string(tt) <- "+proj=stere +lat_0=90 +lat_ts=60 +lon_0=-80 +k=1 +x_0=0 +y_0=0 +a=6378137 +b=6356257 +units=m +no_defs"
+# 
+#   tt
+# }))
+# 
+# names(weekStack) <- paste0("V_", unique(weeks[,2]))
 save(weekStack, file = "Results/weekStack_snow.rda")
 
 load("Results/weekStack_snow.rda")
@@ -85,7 +85,10 @@ load("Results/weekStack_snow.rda")
 plot(land, col = adjustcolor("grey90", alpha.f = 0.5), add = F)
 plot(pol, add = T)
 
-for(p in 1:length(pol)) {
+polCentr <- st_coordinates(st_centroid(st_as_sf(pol)))
+
+
+for(p in which(polCentr[,2]>0)) {
 
   plot(pol[p,], add = T, col = adjustcolor("orange", alpha.f = 0.25))
   
@@ -128,12 +131,12 @@ for(p in 1:length(pol)) {
         
         crp[]
         
-      }, mc.cores = 5))
+      }, mc.cores = 15))
       
-      outEviSnow <- abind::abind(parOut, mapply(function(w) snow[,w], w = as.numeric(format(dates, "%U"))[1:5]), along = 3)
+      outEviSnow <- abind::abind(parOut, mapply(function(w) snow[,w], w = as.numeric(format(dates, "%U"))), along = 3)
       
       outBatch$dat <- outEviSnow
-      save(outBatch, file = paste0("Results/Batches/Batch_", p, ".rda"))
+      save(outBatch, file = paste0("/bioing/user/slisovsk/Batches/Batch_", p, ".rda"))
       
     }
     
