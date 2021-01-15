@@ -140,7 +140,7 @@ lsCos <- function(params, f, Mx, sd = 0.001) {
 
 evalPxl <- function(pxl) {
   
-  # pxl   <- which(inBatch_sf$onLand)[2793]
+  # pxl   <- which(inBatch_sf$onLand)[500]
   
   dst   <- subset(data.frame(ind  = 1:sum(inBatch_sf$inBatch), 
                              dist = suppressMessages(geodist(st_coordinates(inBatch_sf$geometry[inBatch_sf$inBatch]), 
@@ -156,12 +156,43 @@ evalPxl <- function(pxl) {
   
   dat    <- outBatch$dat[which(inBatch_sf$inBatch)[dst[,1]],,]
   evi    <- ifelse(dat[,,1] <= 0 , NA, dat[,,1])
-  
+
   med <- apply(evi, 2, median, na.rm = T)
+  sno <- ifelse(apply(dat[,,2], 2, median, na.rm = T)<1 | is.na(apply(dat[,,2], 2, median, na.rm = T)), TRUE, FALSE)
   
-  if(sum(is.na(med))<length(med)*0.15) {
+  if(any(!sno)) {
+    ind <- which(diff(sno)!=0)
     
-    wt   <- wt(cbind(1:length(med), na.approx(med, rule= 2)))
+    # plot(med[1:300], type = "l")
+    # points(med[1:300], type = "p", pch = 16, col = ifelse(sno, "darkgreen", "grey90"))
+    # par(new = T)
+    # plot(sno[1:300], pch = 16, col = "blue")
+    # abline(v = ind)
+    
+    spl <- split(sno, cut(1:length(msk), unique(c(0, ind, length(msk)+1)), labels = FALSE))
+    msk <- unlist(sapply(spl, function(x) {
+      if(length(x)<6) {
+        x[] <- TRUE
+      } else {
+        if(all(!x)) x[unique(c(1:3, (length(x)-2):length(x)))] <- TRUE
+      }
+      x
+    }))
+    
+    evi <- t(mapply(function(x) {
+      if(any(!is.na(ifelse(msk, evi[x,], NA)))) {
+        na.approx(ifelse(msk, evi[x,], NA), rule = 2)
+      } else evi[x,]
+    }, x = 1:nrow(evi)))
+  }  
+  
+  # plot(med[1:300], type = "l")
+  # points(med[1:300], type = "p", pch = 16, col = ifelse(msk, "darkgreen", "grey90"))
+  # points(msk[1:300]-1, pch = 16, col = "blue")
+  
+  if(sum(is.na(med[msk]))<length(med[msk])*0.15) {
+    
+    wt   <- wt(cbind(1:length(med), na.approx(ifelse(!msk, 0, med), rule= 2)))
     pwL  <- apply(log2(abs(wt$power/wt$sigma2)), 1, median, na.rm = T)
     sig  <- apply(wt$signif, 1, median, na.rm = T)
     
@@ -173,7 +204,7 @@ evalPxl <- function(pxl) {
                                  week = as.numeric(format(seq(min(dates), max(dates), by = "week"), "%U"))),
                       data.frame(year = as.numeric(format(dates, "%Y")), week = as.numeric(format(dates, "%U")),
                                  date = dates, id = 1:length(dates),
-                                 evi  = na.approx(med, rule = 2), t(evi)), all.x = T)
+                                 evi  = na.approx(med, rule = 2), mask = msk, t(evi)), all.x = T)
     
     if(any(wt.sig[,3]==1)) {
       
@@ -181,26 +212,29 @@ evalPxl <- function(pxl) {
       curve <- fit0$par[1]*cos(pi*((1:nrow(datCurve))/(nrow(datCurve)/((nrow(datCurve)/wt.sig[1,2])*2))) +
                                  (pi+fit0$par[2])) +  mean(med, na.rm=T)
       
-      mins <- unique(c(1, which(diff(sign(diff(-curve)))==-2)+1, length(curve)))
+      mins <- sort(unique(c(1, FindPeaks(-curve), length(curve))))
       maxs <- which(diff(sign(diff(curve)))==-2)+1
       
     } else {
       mins <- maxs <- NA
     }
     
-    if((diff(quantile(med, prob = c(0.025,0.975), na.rm = T))>0.1) & length(mins)>20 & length(maxs)>20) {
+    # plot(datCurve$date, datCurve$evi, type = "o")
+    # abline(v = datCurve$date[mins])
+    
+    if(diff(quantile(med[msk], prob = c(0.025,0.975), na.rm = T))>0.1 & length(mins)>20 & length(maxs)>20) {
       
       segL <- apply(do.call("rbind", lapply(maxs, function(x) mins[c(1:length(mins))[order(abs(x-mins))][1:2]]+c(-10,10))), 1,
                     function(x) datCurve[ifelse(x[1]<1, 1, x[1]):ifelse(x[2]>length(curve), length(curve), x[2]),])
       
-      q50 <- median(sapply(segL, function(x) quantile(x[,5], prob = 0.5, na.rm = T)), na.rm = T)
+      q50 <- median(med[msk], na.rm = T)
       
       phen0 <- do.call("rbind", lapply(segL, function(s) {
         
-        dateSeg <- na.approx(s$date)
+        dateSeg <- na.approx(s$date, rule = 2)
         year    <- median(as.numeric(format(s$date, "%Y")), na.rm = T)
         
-        if(length(dateSeg)>20 & sum(is.na(s[,-c(1:5)]))<length(unlist(c(s[,-c(1:5)])))*0.35) {
+        if(length(dateSeg)>20 & sum(is.na(s$evi[s$mask]))<length(s$evi[s$mask])*0.4) {
           
           pwL  <- apply(log2(abs(wt$power/wt$sigma2))[,s$id], 1, median, na.rm = T)
           sig  <- apply(wt$signif[,s$id], 1, median, na.rm = T)
@@ -209,30 +243,32 @@ evalPxl <- function(pxl) {
           wt.s   <- cbind(pwL[wt.pks], wt$period[wt.pks], (sig>=1)[wt.pks])
           wt.sig <- rbind(wt.s[wt.s[,3]==1,], matrix(0, ncol = 3, nrow = 3))[order(c(wt.s[wt.s[,3]==1,1], rep(0,3)), decreasing = T),][1:2,]
           
-          # plot(wt$period, pwL, type = "o")
-          # points(wt$period, pwL, col = ifelse(sig>=1, "red", "grey90"), pch = 16)
-          
-          
-          tmpDat <- subset(data.frame(x = rep(s$date, ncol(s)-5),
-                                      y = unlist(t(c(s[,-c(1:5)]))),
+          tmpDat <- subset(data.frame(x = rep(dateSeg, ncol(s)-6),
+                                      m = rep(s$mask, ncol(s)-6),
+                                      y = unlist(c(s[,-c(1:6)])),
                                       w = rep(weigth, each = nrow(s))), !is.na(y))
+  
           
           dtsSm   <- seq(min(dateSeg), max(dateSeg), by = 24*60*60)
           
           spl     <- smooth.spline(x = tmpDat$x, y = tmpDat$y, spar = 0.3, w = tmpDat$w)
+          XSeg    <- predict(spl, dateSeg)$y
           xSmooth <- predict(spl, dtsSm)$y
-          peaks   <- FindPeaks(xSmooth)
           
-          # plot(tmpDat$x, tmpDat$y, pch = 16, cex = 0.5)
-          # lines(dtsSm, xSmooth, type= "l", lwd = 6, col = "orange")
-          # abline(v = dtsSm[peaks], lty = 2, col = "grey80")
+          peaks   <- FindPeaks(XSeg)
+            peaks <- peaks[peaks%in%which(s$mask)]
           
           pars    <- list(rel_amp_frac = 0.15, rel_peak_frac = NULL, min_seg_amplitude = 0.1)
-          segs    <- tryCatch(do.call("rbind", GetSegs(peaks, xSmooth, pars)), error = function(e) NULL)
+          segs0   <- tryCatch(do.call("rbind", GetSegs(peaks, ifelse(s$mask, XSeg, -1), pars)), error = function(e) NULL)
           
-          # apply(segs, 1, function(x) rect(dtsSm[x[1]], 0, dtsSm[x[3]], 1, col = adjustcolor("grey80", alpha.f = 0.2), border =  "grey10"))
-          
-          if(!is.null(segs)) {
+        
+          if(!is.null(segs0)) {
+            
+            segs <- t(apply(segs0, 1, function(x) {
+              sapply(dateSeg[x], function(y) which.min(abs(y-as.numeric(dtsSm))))
+            }))
+            
+            apply(segs, 1, function(x) rect(dtsSm[x[1]], 0, dtsSm[x[3]], 1, col = adjustcolor("grey80", alpha.f = 0.2), border =  "grey10"))
             
             if(nrow(segs)>1) {
               
@@ -249,26 +285,29 @@ evalPxl <- function(pxl) {
             
             maxDate <- dtsSm[max_in]
             max     <- as.numeric(format(as.POSIXct(dtsSm, origin = "1970-01-01")[max_in], "%j"))
-            # abline(v = as.POSIXct(dtsSm, origin = "1970-01-01")[max_in], lty = 3, col = "red")
             amp    <- diff(range(xSmooth[seqRan[1]:seqRan[2]]))
             
             q10gup <- with(data.frame(t = dtsSm, y = xSmooth)[seqRan[1]:max_in,],  rev(t)[GetThresh(min(y) + diff(range(y))*0.1, rev(y), gup = F, first_greater = T)])
-            # abline(h = with(data.frame(t = dtsSm, y = xSmooth)[seqRan[1]:max_in,], min(y) + diff(range(y))*0.1), v = q10gup, col = "blue")
             q50gup <- suppressWarnings(with(data.frame(t = dtsSm, y = xSmooth)[seqRan[1]:max_in,],  rev(t)[GetThresh(q50, rev(y), gup = F, first_greater = T)]))
-            # abline(h = q50, v = q50gup, col = "cyan")
             q90gup <- with(data.frame(t = dtsSm, y = xSmooth)[seqRan[1]:max_in,],  rev(t)[GetThresh(max(y) - diff(range(y))*0.1, rev(y), gup = F, first_greater = T)])
-            # abline(h = with(data.frame(t = dtsSm, y = xSmooth)[seqRan[1]:max_in,], max(y) - diff(range(y))*0.1), v = q90gup, col = "firebrick")
-            
+              
             q90sen <- with(data.frame(t = dtsSm, y = xSmooth)[max_out:seqRan[2],],  rev(t)[GetThresh(max(y) - diff(range(y))*0.1, rev(y), gup = T, first_greater = F)])
-            # abline(h = with(data.frame(t = dtsSm, y = xSmooth)[max_out:seqRan[2],], max(y) - diff(range(y))*0.1), v = q90sen, col = "blue")
             q50sen <- suppressWarnings(with(data.frame(t = dtsSm, y = xSmooth)[max_out:seqRan[2],],  rev(t)[GetThresh(q50, rev(y), gup = T, first_greater = F)]))
-            # abline(h = q50, v = q50sen, col = "cyan")
             q10sen <- with(data.frame(t = dtsSm, y = xSmooth)[max_out:seqRan[2],],  rev(t)[GetThresh(min(y) + diff(range(y))*0.1, rev(y), gup = T, first_greater = F)])
-            # abline(h = with(data.frame(t = dtsSm, y = xSmooth)[max_out:seqRan[2],], min(y) + diff(range(y))*0.1), v = q10sen, col = "firebrick")
-            
+              
             area   <- with(data.frame(t = 1:length(dtsSm), y = xSmooth)[seqRan[1]:seqRan[2],],
                            MESS::auc(t, y, type = 'spline'))
             
+            
+            # plot(tmpDat$x, tmpDat$y, pch = 16, cex = 0.5)
+            # lines(dtsSm, xSmooth, type= "l", lwd = 6, col = "orange")
+            # abline(v = dtsSm[max_in], lty = 3, col = "red", lwd = 3)
+            # points(q10gup, with(data.frame(t = dtsSm, y = xSmooth)[seqRan[1]:max_in,],  min(y) + diff(range(y))*0.1), pch = 23, bg = "white", lwd = 2, cex = 3)
+            # points(q50gup, q50, pch = 21, bg = "white", lwd = 2, cex = 3)
+            # points(q90gup, with(data.frame(t = dtsSm, y = xSmooth)[seqRan[1]:max_in,],  max(y) - diff(range(y))*0.1), pch = 22, bg = "white", lwd = 2, cex = 3)
+            # points(q90sen, with(data.frame(t = dtsSm, y = xSmooth)[seqRan[1]:max_in,],  max(y) - diff(range(y))*0.1), pch = 23, bg = "cornflowerblue", lwd = 2, cex = 3)
+            # points(q50sen, q50, pch = 21, bg = "cornflowerblue", lwd = 2, cex = 3)
+            # points(q10sen,with(data.frame(t = dtsSm, y = xSmooth)[max_out:seqRan[2],],  min(y) + diff(range(y))*0.1), pch = 22, bg = "cornflowerblue", lwd = 2, cex = 3)
             
             out <- c(year = year,                                  #1
                      per1 = ifelse(wt.sig[1,3], wt.sig[1,2], NA),  #2
@@ -278,7 +317,7 @@ evalPxl <- function(pxl) {
                      max = max,                                    #6
                      amp = round(amp, 2),                          #7
                      area = round(area,2),                         #8
-                     max + (c(q10gup, q50gup, q90gup, q90sen, q50sen, q10sen) -  maxDate)/60/60/24) #9, 10, 11, 12, 13, 14
+                     as.POSIXlt(maxDate, origin = "1970-01-01")$yday + (c(q10gup, q50gup, q90gup, q90sen, q50sen, q10sen) -  maxDate)/24/60/60) #9, 10, 11, 12, 13, 14
             
             out
             
