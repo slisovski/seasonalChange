@@ -49,10 +49,10 @@ if(!file.exists(paste0(phen_dir, "phenBatch_", batch, ".rda"))) {
   load(paste0(batch_dir, "Batch_", batch, ".rda"))
   
   inBatch_sf = st_as_sf(outBatch$crds[,c(1:2)], coords = c("x", "y"), crs = 4326, agr = "constant")
-  inBatch_sf$onLand <- apply(outBatch$crds[,-c(1:3, ncol(outBatch$crds))], 1, any) &
+  inBatch_sf$onLand <- outBatch$crds[,-c(1:3, ncol(outBatch$crds))] &
     !outBatch$crds[,ncol(outBatch$crds)] &
     outBatch$crds[,3]
-  inBatch_sf$inBatch <- apply(outBatch$crds[,-c(1:3, ncol(outBatch$crds))], 1, any) &
+  inBatch_sf$inBatch <- outBatch$crds[,-c(1:3, ncol(outBatch$crds))] &
     !outBatch$crds[,ncol(outBatch$crds)]
 
   # a <- Sys.time()
@@ -66,11 +66,10 @@ if(!file.exists(paste0(phen_dir, "phenBatch_", batch, ".rda"))) {
                     error = function(e) NULL)
   
   phenR <- rasterFromXYZ(cbind(outBatch$crds[outBatch$crds[,3],1:2],
-                               (apply(outBatch$crds[,-c(1:3, ncol(outBatch$crds))], 1, any) &
-                                  !outBatch$crds[,ncol(outBatch$crds)])[outBatch$crds[,3]]), crs = CRS("+proj=longlat"))
+                               (outBatch$crds[,4] & !outBatch$crds[,ncol(outBatch$crds)])[outBatch$crds[,3]]), crs = CRS("+proj=longlat"))
   
   # r_test <- phenR; r_test[] <- NA
-  # r_test[phenR[]==1][1:500] <-  apply(phenA, c(1,3), median, na.rm = T)[,9]
+  # r_test[phenR[]==1] <-  apply(phenA, c(1,3), median, na.rm = T)[,9]
   # plot(r_test)
   
   names(phenR) <- paste0("batch_", batch)
