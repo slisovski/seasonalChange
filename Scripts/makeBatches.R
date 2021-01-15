@@ -85,12 +85,12 @@ load("Results/weekStack_snow.rda")
 plot(land, col = adjustcolor("grey90", alpha.f = 0.5), add = F)
 plot(pol, add = T)
 
-polCentr <- st_coordinates(st_centroid(st_as_sf(pol)))
 
-
-for(p in which(polCentr[,2]>0)) {
+for(p in 1224:length(pol)) {
 
   plot(pol[p,], add = T, col = adjustcolor("orange", alpha.f = 0.25))
+  
+  if(!file.exists(paste0("/bioing/user/slisovsk/Batches/Batch_", p, ".rda"))) {
   
   ### VHP within batch extent
   tmp <- raster(paste0(pathVHP, fls[1]))
@@ -141,7 +141,7 @@ for(p in which(polCentr[,2]>0)) {
     }
     
   }
-  
+  }
 }
 
 # test <- rasterFromXYZ(cbind(outBatch$crds[,1:2], outBatch$dat[,100,1]))
