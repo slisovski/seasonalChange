@@ -140,7 +140,7 @@ lsCos <- function(params, f, Mx, sd = 0.001) {
 
 evalPxl <- function(pxl) {
   
-  # pxl   <- which(inBatch_sf$onLand)[500]
+  # pxl   <- which(inBatch_sf$onLand)[1]
   
   dst   <- subset(data.frame(ind  = 1:sum(inBatch_sf$inBatch), 
                              dist = suppressMessages(geodist(st_coordinates(inBatch_sf$geometry[inBatch_sf$inBatch]), 
@@ -169,7 +169,7 @@ evalPxl <- function(pxl) {
     # plot(sno[1:300], pch = 16, col = "blue")
     # abline(v = ind)
     
-    spl <- split(sno, cut(1:length(msk), unique(c(0, ind, length(msk)+1)), labels = FALSE))
+    spl <- split(sno, cut(1:length(sno), unique(c(0, ind, length(sno)+1)), labels = FALSE))
     msk <- unlist(sapply(spl, function(x) {
       if(length(x)<6) {
         x[] <- TRUE
@@ -184,7 +184,9 @@ evalPxl <- function(pxl) {
         na.approx(ifelse(msk, evi[x,], NA), rule = 2)
       } else evi[x,]
     }, x = 1:nrow(evi)))
-  }  
+  } else {
+    msk <- rep(TRUE, ncol(evi))
+  }
   
   # plot(med[1:300], type = "l")
   # points(med[1:300], type = "p", pch = 16, col = ifelse(msk, "darkgreen", "grey90"))
@@ -268,8 +270,6 @@ evalPxl <- function(pxl) {
               sapply(dateSeg[x], function(y) which.min(abs(y-as.numeric(dtsSm))))
             }))
             
-            apply(segs, 1, function(x) rect(dtsSm[x[1]], 0, dtsSm[x[3]], 1, col = adjustcolor("grey80", alpha.f = 0.2), border =  "grey10"))
-            
             if(nrow(segs)>1) {
               
               max_in   <- min(segs[order(xSmooth[segs[,2]], decreasing = T),2][1:2])
@@ -302,6 +302,7 @@ evalPxl <- function(pxl) {
             # plot(tmpDat$x, tmpDat$y, pch = 16, cex = 0.5)
             # lines(dtsSm, xSmooth, type= "l", lwd = 6, col = "orange")
             # abline(v = dtsSm[max_in], lty = 3, col = "red", lwd = 3)
+            # apply(segs, 1, function(x) rect(dtsSm[x[1]], 0, dtsSm[x[3]], 1, col = adjustcolor("grey80", alpha.f = 0.2), border =  "grey10"))
             # points(q10gup, with(data.frame(t = dtsSm, y = xSmooth)[seqRan[1]:max_in,],  min(y) + diff(range(y))*0.1), pch = 23, bg = "white", lwd = 2, cex = 3)
             # points(q50gup, q50, pch = 21, bg = "white", lwd = 2, cex = 3)
             # points(q90gup, with(data.frame(t = dtsSm, y = xSmooth)[seqRan[1]:max_in,],  max(y) - diff(range(y))*0.1), pch = 22, bg = "white", lwd = 2, cex = 3)

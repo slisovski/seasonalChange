@@ -28,10 +28,10 @@ source('/work/ollie/slisovsk/Projects/SeasonalChange/Scripts/functions.R', echo=
 
 ### map 
 land <- read_sf("Data/GeoDat/ne_50m_land/ne_50m_land.shp") %>% st_geometry()
-lbox <- st_bbox(c(xmin = 108, xmax = 130, ymin = 55, ymax = 80), crs = 4326) %>% st_as_sfc()
+# lbox <- st_bbox(c(xmin = 80, xmax = 170, ymin = 50, ymax = 80), crs = 4326) %>% st_as_sfc()
 r0 <- raster(extent(st_bbox(land)[c(1,3,2,4)]), res = 5)
 pol <- st_as_sfc(rasterToPolygons(r0)) %>% st_set_crs(4326)
-inBBB <- suppressMessages(unlist(st_intersects(lbox, pol)))
+# inBBB <- suppressMessages(unlist(st_intersects(lbox, pol)))
 
 ### batches
 batch_dir <- "/work/ollie/slisovsk/Projects/SeasonalChange/Results/Batches/"
@@ -42,7 +42,7 @@ load("/work/ollie/slisovsk/Projects/SeasonalChange/Results/dateSequence.rda")
 
 
 ### Pixel analysis
-batch <- batchID[which(batchID%in%inBBB)][as.numeric(args[1])]
+batch <- batchID[as.numeric(args[1])]
 
 if(!file.exists(paste0(phen_dir, "phenBatch_", batch, ".rda"))) {
 
@@ -69,7 +69,7 @@ if(!file.exists(paste0(phen_dir, "phenBatch_", batch, ".rda"))) {
                                (outBatch$crds[,4] & !outBatch$crds[,ncol(outBatch$crds)])[outBatch$crds[,3]]), crs = CRS("+proj=longlat"))
   
   # r_test <- phenR; r_test[] <- NA
-  # r_test[phenR[]==1] <-  apply(phenA, c(1,3), median, na.rm = T)[,9]
+  # r_test[phenR[]==1] <-  apply(phenA, c(1,3), median, na.rm = T)[,2]
   # plot(r_test)
   
   names(phenR) <- paste0("batch_", batch)
@@ -78,4 +78,5 @@ if(!file.exists(paste0(phen_dir, "phenBatch_", batch, ".rda"))) {
 
   drive_upload(paste0(phen_dir, "phenBatch_", batch, ".rda"),
                path = "SeasonalChange/phenBatchesRDA/", name = paste0("phenBatch_", batch, ".rda"), verbose = FALSE, overwrite = T)
+
 }

@@ -2,7 +2,7 @@
 
 #SBATCH --job-name=phenB
 #SBATCH --time=03:00:00
-#SBATCH --array=1-36%50
+#SBATCH --array=701-1033%10
 #SBATCH --output=slurmDir/array_%A_%a.out
 #SBATCH --cpus-per-task=15
 #SBATCH --mem=35000M
