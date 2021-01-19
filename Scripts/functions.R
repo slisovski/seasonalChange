@@ -357,6 +357,8 @@ evalPxl <- function(pxl) {
       
     }  else {
       
+      wt.sig <- matrix(0, ncol = 3, nrow = 2)
+      
       phen0 =  cbind(year = 1981:2020,                      
                      per1 = NA,
                      sig1 = NA,
