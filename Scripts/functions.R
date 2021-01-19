@@ -141,11 +141,13 @@ lsCos <- function(params, f, Mx, sd = 0.001) {
 evalPxl <- function(pxl) {
   
   # pxl   <- which(inBatch_sf$onLand)[1]
-  
-  dst   <- subset(data.frame(ind  = 1:sum(inBatch_sf$inBatch), 
-                             dist = suppressMessages(geodist(st_coordinates(inBatch_sf$geometry[inBatch_sf$inBatch]), 
+
+  dst   <- subset(data.frame(ind  = 1:sum(inBatch_sf$inBatch),
+                             dist = suppressMessages(geodist(st_coordinates(inBatch_sf$geometry[inBatch_sf$inBatch]),
                                                              st_coordinates(inBatch_sf$geometry[pxl,]), measure = "cheap"))/1000), dist<15)
-  
+
+  if(nrow(dst)>=4) {
+
   # plot(inBatch_sf$geometry, pch = 16, cex = 0.6, col = "grey90")
   # plot(inBatch_sf$geometry[which(inBatch_sf$inBatch),], pch = 16, col = "orange", add = T)
   # plot(inBatch_sf$geometry[which(inBatch_sf$onLand),], pch = 16, cex = 0.5, col = "darkgreen", add = T)
@@ -198,6 +200,8 @@ evalPxl <- function(pxl) {
     pwL  <- apply(log2(abs(wt$power/wt$sigma2)), 1, median, na.rm = T)
     sig  <- apply(wt$signif, 1, median, na.rm = T)
     
+    if(any(sig>=1)) {
+    
     wt.pks <- FindPeaks(pwL)
     wt.s   <- cbind(pwL[wt.pks], round(wt$period[wt.pks],0), (sig>=1)[wt.pks])[order(pwL[wt.pks], decreasing = T),]
     wt.sig <- rbind(wt.s[wt.s[,3]==1,], matrix(0, ncol = 3, nrow = 3))[1:2,]  
@@ -217,6 +221,9 @@ evalPxl <- function(pxl) {
       mins <- sort(unique(c(1, FindPeaks(-curve), length(curve))))
       maxs <- which(diff(sign(diff(curve)))==-2)+1
       
+    } else {
+      mins <- maxs <- NA
+    }
     } else {
       mins <- maxs <- NA
     }
@@ -374,12 +381,28 @@ evalPxl <- function(pxl) {
                    area = NA, matrix(NA, ncol = 6, nrow = length(1981:2020)))
   }
   
+  } else {
+    
+    wt.sig <- matrix(0, ncol = 3, nrow = 2)
+    
+    phen0 =  cbind(year = 1981:2020,                      
+                   per1 = NA,
+                   sig1 = NA,
+                   per2 = NA,
+                   sig2 = NA,
+                   max  = NA,
+                   amp  = NA,
+                   area = NA, matrix(NA, ncol = 6, nrow = length(1981:2020)))
+    
+  }
   
   if(any(wt.sig[,3]==1) & wt.sig[1,2]%in%c(42:62)) {
     phen <- aggregate(phen0, by = list(phen0[,1]), median)[,-1]
   } else {
     phen <- do.call("rbind", lapply(split(as.data.frame(phen0), round(phen0[,1],0)), function(a) a[1,]))
   }
+  
+
   
   merge(data.frame(year = 1981:2020), as.data.frame(phen), all.x = T)[,-1]
   

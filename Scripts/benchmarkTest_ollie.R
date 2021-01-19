@@ -39,12 +39,13 @@ phen_dir  <- "/work/ollie/slisovsk/Projects/SeasonalChange/Results/phenBatches/"
 batches   <- list.files(batch_dir, pattern = ".rda")
 batchID   <- sapply(strsplit(batches, "_"), function(x) as.numeric(substring(x[[2]], 1, nchar(x[[2]]) -4)))
 load("/work/ollie/slisovsk/Projects/SeasonalChange/Results/dateSequence.rda") 
+load("Scripts/isNull.rda")
 
 
 ### Pixel analysis
-batch <- batchID[as.numeric(args[1])]
+batch <- batchID[batchID%in%isNull][as.numeric(args[1])]
 
-if(!file.exists(paste0(phen_dir, "phenBatch_", batch, ".rda"))) {
+# if(!file.exists(paste0(phen_dir, "phenBatch_", batch, ".rda"))) {
 
   load(paste0(batch_dir, "Batch_", batch, ".rda"))
   
@@ -59,6 +60,7 @@ if(!file.exists(paste0(phen_dir, "phenBatch_", batch, ".rda"))) {
   pxlPhen <- mclapply(which(inBatch_sf$onLand), evalPxl, mc.cores = 15)
   # Sys.time() - a
   
+  batch
   tt <- sapply(pxlPhen, function(x) is.data.frame(x))
   pxlPhen[[which(!tt)[1]]]
   
@@ -69,7 +71,7 @@ if(!file.exists(paste0(phen_dir, "phenBatch_", batch, ".rda"))) {
                                (outBatch$crds[,4] & !outBatch$crds[,ncol(outBatch$crds)])[outBatch$crds[,3]]), crs = CRS("+proj=longlat"))
   
   # r_test <- phenR; r_test[] <- NA
-  # r_test[phenR[]==1] <-  apply(phenA, c(1,3), median, na.rm = T)[,2]
+  # r_test[phenR[]==1][10000:11000] <-  apply(phenA, c(1,3), median, na.rm = T)[,2]
   # plot(r_test)
   
   names(phenR) <- paste0("batch_", batch)
@@ -79,4 +81,4 @@ if(!file.exists(paste0(phen_dir, "phenBatch_", batch, ".rda"))) {
   drive_upload(paste0(phen_dir, "phenBatch_", batch, ".rda"),
                path = "SeasonalChange/phenBatchesRDA/", name = paste0("phenBatch_", batch, ".rda"), verbose = FALSE, overwrite = T)
 
-}
+# }
