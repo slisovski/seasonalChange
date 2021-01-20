@@ -40,15 +40,15 @@ load("/work/ollie/slisovsk/Projects/SeasonalChange/Results/dateSequence.rda")
 
 batch <- batchID[batchID%in%inBBB][as.numeric(args[1])]
 
-if(!file.exists(paste0(phen_dir, "phenBatch_", batch, ".rda"))) {
+# if(!file.exists(paste0(phen_dir, "phenBatch_", batch, ".rda"))) {
 
 load(paste0(batch_dir, "Batch_", batch, ".rda"))
 
 inBatch_sf = st_as_sf(outBatch$crds[,1:2], coords = c("x", "y"), crs = 4326, agr = "constant")
-  inBatch_sf$onLand <- apply(outBatch$crds[,-c(1:3, ncol(outBatch$crds))], 1, any) &
+  inBatch_sf$onLand <- outBatch$crds$land &
     !outBatch$crds[,ncol(outBatch$crds)] &
     outBatch$crds[,3]
-  inBatch_sf$inBatch <- apply(outBatch$crds[,-c(1:3, ncol(outBatch$crds))], 1, any) &
+  inBatch_sf$inBatch <- outBatch$crds$land &
     !outBatch$crds[,ncol(outBatch$crds)]
   
   # plot(inBatch_sf$geometry, pch = 16, cex = 0.5)
@@ -335,4 +335,5 @@ save(phenOut, file = paste0(phen_dir, "phenBatch_", batch, ".rda"))
 
 drive_upload(paste0(phen_dir, "phenBatch_", batch, ".rda"),
              path = "SeasonalChange/phenBatchesRDA/", name = paste0("phenBatch_", batch, ".rda"), verbose = FALSE, overwrite = T)
+
 } ## file exists

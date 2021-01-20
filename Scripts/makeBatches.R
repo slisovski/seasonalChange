@@ -3,7 +3,6 @@ library(raster)
 library(ncdf4)
 library(rgdal)
 library(parallel)
-library(mcapply)
 
 ## land mask
 lake <- read_sf("Data/GeoDat/ne_50m_lakes/ne_50m_lakes.shp") %>% st_union()
