@@ -4,6 +4,11 @@ library(rgdal)
 library(rgeos)
 library(parallel)
 
+
+load("Scripts/isNull.rda")
+isNull_old <- isNull
+
+
 ## land mask
 land   <- read_sf("Data/GeoDat/ne_50m_land//ne_50m_land.shp") %>% st_geometry()
 # lbox   <- st_bbox(c(xmin = -20, xmax = 50, ymin = 20, ymax = 75), crs = 4326) %>% st_as_sfc()
@@ -13,8 +18,8 @@ pol    <- st_as_sfc(rasterToPolygons(r0)) %>% st_set_crs(4326)
 
 
 ## batches
-# phen_dir  <- "/Users/slisovski/Google Drive/SeasonalChange/phenBatchesRDA/"
-phen_dir  <- "/Users/slisovsk/Google Drive/SeasonalChange/phenBatchesRDA/"
+phen_dir  <- "/Users/slisovski/Google Drive/SeasonalChange/phenBatchesRDA/"
+# phen_dir  <- "/Users/slisovsk/Google Drive/SeasonalChange/phenBatchesRDA/"
 batches   <- list.files(phen_dir, pattern = ".rda")
 batchID   <- sapply(strsplit(batches, "_"), function(x) as.numeric(substring(x[[2]], 1, nchar(x[[2]]) -4)))
 # lbox <- st_bbox(c(xmin = 80, xmax = 170, ymin = 50, ymax = 80), crs = 4326) %>% st_as_sfc()
@@ -27,11 +32,11 @@ isNull <- unlist(mclapply(batchID, function(x) {
   }, mc.cores = 4))
 
 
-save(isNull, file = "Scripts//isNull.rda")
+# save(isNull, file = "Scripts//isNull.rda")
 
 
 plot(land, col = "grey60", border = NA)
-plot(pol[batchID[batchID%in%isNull],], col = adjustcolor("orange", 0.1), add = T)
+plot(pol[batchID[batchID%in%isNull],], col = adjustcolor("red", 0.6), add = T)
 crds <- suppressWarnings(st_coordinates(st_centroid(pol)))
 text(crds[batchID[batchID%in%isNull],1], crds[batchID[batchID%in%isNull],2], isNull, cex = 0.5)
 

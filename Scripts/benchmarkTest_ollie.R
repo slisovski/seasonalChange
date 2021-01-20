@@ -57,7 +57,7 @@ batch <- batchID[batchID%in%isNull][as.numeric(args[1])]
     !outBatch$crds[,ncol(outBatch$crds)]
 
   # a <- Sys.time()
-  pxlPhen <- mclapply(which(inBatch_sf$onLand), evalPxl, mc.cores = 4)
+  pxlPhen <- mclapply(which(inBatch_sf$onLand), evalPxl, mc.cores = 15)
   # Sys.time() - a
   
   batch
