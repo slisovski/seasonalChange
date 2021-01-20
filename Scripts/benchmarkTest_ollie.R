@@ -50,17 +50,14 @@ batch <- batchID[batchID%in%isNull][as.numeric(args[1])]
   load(paste0(batch_dir, "Batch_", batch, ".rda"))
   
   inBatch_sf = st_as_sf(outBatch$crds[,c(1:2)], coords = c("x", "y"), crs = 4326, agr = "constant")
-  inBatch_sf$onLand <- outBatch$crds[,-c(1:3, ncol(outBatch$crds))] &
+  inBatch_sf$onLand <- outBatch$crds$land &
     !outBatch$crds[,ncol(outBatch$crds)] &
     outBatch$crds[,3]
-  inBatch_sf$inBatch <- outBatch$crds[,-c(1:3, ncol(outBatch$crds))] &
+  inBatch_sf$inBatch <- outBatch$crds$land &
     !outBatch$crds[,ncol(outBatch$crds)]
 
-  # a <- Sys.time()
   pxlPhen <- mclapply(which(inBatch_sf$onLand), evalPxl, mc.cores = 15)
-  # Sys.time() - a
-  
-  batch
+
   tt <- sapply(pxlPhen, function(x) is.data.frame(x))
   pxlPhen[[which(!tt)[1]]]
   

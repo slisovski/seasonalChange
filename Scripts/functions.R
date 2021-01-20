@@ -240,12 +240,10 @@ evalPxl <- function(pxl) {
       
       phen0 <- do.call("rbind", lapply(segL, function(s) {
         
-        # s <- segL[[1]]
-        
         dateSeg <- na.approx(s$date, rule = 2)
         year    <- median(as.numeric(format(s$date, "%Y")), na.rm = T)
         
-        if(length(dateSeg)>20 & sum(is.na(s$evi[s$mask]))<length(s$evi[s$mask])*0.4 & diff(range(s$evi[s$mask]))>0.1) {
+        if(length(dateSeg)>20 & sum(is.na(s[s$mask,-c(1:6)]))<length(unlist(c(s[s$mask,-c(1:6)])))*0.4) {
           
           pwL  <- apply(log2(abs(wt$power/wt$sigma2))[,s$id], 1, median, na.rm = T)
           sig  <- apply(wt$signif[,s$id], 1, median, na.rm = T)
