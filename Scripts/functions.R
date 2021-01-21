@@ -140,7 +140,7 @@ lsCos <- function(params, f, Mx, sd = 0.001) {
 
 evalPxl <- function(pxl) {
   
-  # pxl   <- which(inBatch_sf$onLand)[1]
+  pxl   <- which(inBatch_sf$onLand)[200]
 
   dst   <- subset(data.frame(ind  = 1:sum(inBatch_sf$inBatch),
                              dist = suppressMessages(geodist(st_coordinates(inBatch_sf$geometry[inBatch_sf$inBatch]),
@@ -198,7 +198,15 @@ evalPxl <- function(pxl) {
     
     wt   <- wt(cbind(1:length(med), na.approx(ifelse(!msk, 0, med), rule= 2)))
     pwL  <- apply(log2(abs(wt$power/wt$sigma2)), 1, median, na.rm = T)
-    sig  <- apply(wt$signif, 1, median, na.rm = T)
+    sig  <- apply(wt$signif, 1, quantile, probs = 0.75, na.rm = T)
+    
+    # plot(wt$period, pwL, type=  "o", pch = 16, log = "x")
+    # points(wt$period, pwL, pch = 16, col = ifelse(sig>1, "red", "grey90"))
+    
+    
+    
+    
+    
     
     if(any(sig>=1)) {
     
@@ -214,7 +222,7 @@ evalPxl <- function(pxl) {
     
     if(any(wt.sig[,3]==1)) {
       
-      fit0  <- optim(fn = lsCos, par = c(a = 1, b = 0), f = wt.sig[1,2], Mx = datCurve$evi - median(med, na.rm = T), sd = 0.01)
+      fit0  <- optim(fn = lsCos, par = c(a = 1, b = 0), f = wt.sig[2,2], Mx = datCurve$evi - median(med, na.rm = T), sd = 0.01)
       curve <- fit0$par[1]*cos(pi*((1:nrow(datCurve))/(nrow(datCurve)/((nrow(datCurve)/wt.sig[1,2])*2))) +
                                  (pi+fit0$par[2])) +  mean(med, na.rm=T)
       
@@ -228,8 +236,8 @@ evalPxl <- function(pxl) {
       mins <- maxs <- NA
     }
     
-    # plot(datCurve$date, datCurve$evi, type = "o")
-    # abline(v = datCurve$date[mins])
+    with(datCurve[1:500,], plot(date, evi, type = "o"))
+    abline(v = datCurve$date[mins])
     
     if(diff(quantile(med[msk], prob = c(0.025,0.975), na.rm = T))>0.1 & length(mins)>20 & length(maxs)>20) {
       
@@ -240,8 +248,13 @@ evalPxl <- function(pxl) {
       
       phen0 <- do.call("rbind", lapply(segL, function(s) {
         
+        s <- segL[[2]]
+        
         dateSeg <- na.approx(s$date, rule = 2)
         year    <- median(as.numeric(format(s$date, "%Y")), na.rm = T)
+        
+        # plot(rep(dateSeg, ncol(s)-6), unlist(c(s[,-c(1:6)])), pch = 16, cex = 0.5)
+        # lines(dtsSm, xSmooth, type= "l", lwd = 6, col = "orange")
         
         if(length(dateSeg)>20 & sum(is.na(s[s$mask,-c(1:6)]))<length(unlist(c(s[s$mask,-c(1:6)])))*0.4) {
           

@@ -43,9 +43,8 @@ load("Scripts/isNull.rda")
 
 
 ### Pixel analysis
-batch <- batchID[batchID%in%isNull][as.numeric(args[1])]
+batch <- batchID[as.numeric(args[1])]
 
-# if(!file.exists(paste0(phen_dir, "phenBatch_", batch, ".rda"))) {
 
   load(paste0(batch_dir, "Batch_", batch, ".rda"))
   
