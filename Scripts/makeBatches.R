@@ -37,7 +37,6 @@ dates <- dSeq$x[apply(dts, 1, function(x) which(x[1]==as.numeric(dSeq$Group.1) &
 
 ## result Raster
 r0 <- raster(paste0(pathVHP, fls[[1]]))
-# plot(r0)
 r0[] <- NA 
 names(r0) <- "phenRaster_empty"
 
@@ -73,7 +72,7 @@ names(r0) <- "phenRaster_empty"
 # }))
 # 
 # names(weekStack) <- paste0("V_", unique(weeks[,2]))
-save(weekStack, file = "Results/weekStack_snow.rda")
+# save(weekStack, file = "Results/weekStack_snow.rda")
 
 load("Results/weekStack_snow.rda")
 
@@ -81,13 +80,13 @@ load("Results/weekStack_snow.rda")
 ## create batches ##
 ####################
 
-plot(land, col = adjustcolor("grey90", alpha.f = 0.5), add = F)
-plot(pol, add = T)
+# plot(land, col = adjustcolor("grey90", alpha.f = 0.5), add = F)
+# plot(pol, add = T)
 
 
 for(p in 1224:length(pol)) {
 
-  plot(pol[p,], add = T, col = adjustcolor("orange", alpha.f = 0.25))
+  # plot(pol[p,], add = T, col = adjustcolor("orange", alpha.f = 0.25))
   
   if(!file.exists(paste0("/bioing/user/slisovsk/Batches/Batch_", p, ".rda"))) {
   
@@ -121,15 +120,8 @@ for(p in 1224:length(pol)) {
       ## loop over dates
       parOut <- do.call("cbind", mclapply(1:length(fls), function(f) {
         
-        crp <- crop(raster(paste0(pathVHP, fls[f])), polE)
-        
-        # if(any(crds[,2]>0)) {
-        #   snow <- rasterize(xy, r_snow, field = t(z[,,which.min(abs(snowD - dates[f]))]))
-        #   sOut <- extract(snow, project(crds, prj))
-        # } else sOut <- rep(NA, nrow(crds))
-        
-        crp[]
-        
+        crop(raster(paste0(pathVHP, fls[f])), polE)[]
+
       }, mc.cores = 15))
       
       outEviSnow <- abind::abind(parOut, mapply(function(w) snow[,w], w = as.numeric(format(dates, "%U"))), along = 3)
@@ -142,6 +134,3 @@ for(p in 1224:length(pol)) {
   }
   }
 }
-
-# test <- rasterFromXYZ(cbind(outBatch$crds[,1:2], outBatch$dat[,100,1]))
-# plot(test, breaks = seq(0,1, length = 100))

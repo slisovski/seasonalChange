@@ -138,9 +138,10 @@ lsCos <- function(params, f, Mx, sd = 0.001) {
   -sum(dnorm(x= Mx[!is.na(Mx)], mean=fit[!is.na(Mx)], sd=sd, log=TRUE))
 }
 
+
 evalPxl <- function(pxl) {
   
-  pxl   <- which(inBatch_sf$onLand)[200]
+  # pxl   <- which(inBatch_sf$onLand)[200]
 
   dst   <- subset(data.frame(ind  = 1:sum(inBatch_sf$inBatch),
                              dist = suppressMessages(geodist(st_coordinates(inBatch_sf$geometry[inBatch_sf$inBatch]),
@@ -164,13 +165,7 @@ evalPxl <- function(pxl) {
   
   if(any(!sno)) {
     ind <- which(diff(sno)!=0)
-    
-    # plot(med[1:300], type = "l")
-    # points(med[1:300], type = "p", pch = 16, col = ifelse(sno, "darkgreen", "grey90"))
-    # par(new = T)
-    # plot(sno[1:300], pch = 16, col = "blue")
-    # abline(v = ind)
-    
+
     spl <- split(sno, cut(1:length(sno), unique(c(0, ind, length(sno)+1)), labels = FALSE))
     msk <- unlist(sapply(spl, function(x) {
       if(length(x)<6) {
@@ -189,24 +184,13 @@ evalPxl <- function(pxl) {
   } else {
     msk <- rep(TRUE, ncol(evi))
   }
-  
-  # plot(med[1:300], type = "l")
-  # points(med[1:300], type = "p", pch = 16, col = ifelse(msk, "darkgreen", "grey90"))
-  # points(msk[1:300]-1, pch = 16, col = "blue")
+
   
   if(sum(is.na(med[msk]))<length(med[msk])*0.15) {
     
     wt   <- wt(cbind(1:length(med), na.approx(ifelse(!msk, 0, med), rule= 2)))
     pwL  <- apply(log2(abs(wt$power/wt$sigma2)), 1, median, na.rm = T)
     sig  <- apply(wt$signif, 1, quantile, probs = 0.75, na.rm = T)
-    
-    # plot(wt$period, pwL, type=  "o", pch = 16, log = "x")
-    # points(wt$period, pwL, pch = 16, col = ifelse(sig>1, "red", "grey90"))
-    
-    
-    
-    
-    
     
     if(any(sig>=1)) {
     
@@ -220,10 +204,10 @@ evalPxl <- function(pxl) {
                                  date = dates, id = 1:length(dates),
                                  evi  = na.approx(med, rule = 2), mask = msk, t(evi)), all.x = T)
     
-    if(any(wt.sig[,3]==1)) {
+    if(any(wt.sig[,3]==1) & any(wt.sig[,2]%in%c(45:60))) {
       
-      fit0  <- optim(fn = lsCos, par = c(a = 1, b = 0), f = wt.sig[2,2], Mx = datCurve$evi - median(med, na.rm = T), sd = 0.01)
-      curve <- fit0$par[1]*cos(pi*((1:nrow(datCurve))/(nrow(datCurve)/((nrow(datCurve)/wt.sig[1,2])*2))) +
+      fit0  <- optim(fn = lsCos, par = c(a = 1, b = 0), f = 52, Mx = na.approx(datCurve$evi - median(med, na.rm = T), rule =  3), sd = 0.01)
+      curve <- fit0$par[1]*cos(pi*((1:nrow(datCurve))/(nrow(datCurve)/((nrow(datCurve)/52)*2))) +
                                  (pi+fit0$par[2])) +  mean(med, na.rm=T)
       
       mins <- sort(unique(c(1, FindPeaks(-curve), length(curve))))
@@ -236,10 +220,10 @@ evalPxl <- function(pxl) {
       mins <- maxs <- NA
     }
     
-    with(datCurve[1:500,], plot(date, evi, type = "o"))
-    abline(v = datCurve$date[mins])
+    # with(datCurve[1:500,], plot(date, evi, type = "o"))
+    # abline(v = datCurve$date[mins])
     
-    if(diff(quantile(med[msk], prob = c(0.025,0.975), na.rm = T))>0.1 & length(mins)>20 & length(maxs)>20) {
+    if(diff(quantile(med[msk], prob = c(0.025,0.975), na.rm = T))>0.75 & length(mins)>20 & length(maxs)>20) {
       
       segL <- apply(do.call("rbind", lapply(maxs, function(x) mins[c(1:length(mins))[order(abs(x-mins))][1:2]]+c(-10,10))), 1,
                     function(x) datCurve[ifelse(x[1]<1, 1, x[1]):ifelse(x[2]>length(curve), length(curve), x[2]),])
@@ -248,13 +232,12 @@ evalPxl <- function(pxl) {
       
       phen0 <- do.call("rbind", lapply(segL, function(s) {
         
-        s <- segL[[2]]
+        # s <- segL[[2]]
         
         dateSeg <- na.approx(s$date, rule = 2)
         year    <- median(as.numeric(format(s$date, "%Y")), na.rm = T)
         
         # plot(rep(dateSeg, ncol(s)-6), unlist(c(s[,-c(1:6)])), pch = 16, cex = 0.5)
-        # lines(dtsSm, xSmooth, type= "l", lwd = 6, col = "orange")
         
         if(length(dateSeg)>20 & sum(is.na(s[s$mask,-c(1:6)]))<length(unlist(c(s[s$mask,-c(1:6)])))*0.4) {
           
@@ -277,10 +260,12 @@ evalPxl <- function(pxl) {
           XSeg    <- predict(spl, dateSeg)$y
           xSmooth <- predict(spl, dtsSm)$y
           
+          # lines(dtsSm, xSmooth, type= "l", lwd = 6, col = "orange")
+          
           peaks   <- FindPeaks(XSeg)
             peaks <- peaks[peaks%in%which(s$mask)]
           
-          pars    <- list(rel_amp_frac = 0.15, rel_peak_frac = NULL, min_seg_amplitude = 0.1)
+          pars    <- list(rel_amp_frac = 0.15, rel_peak_frac = NULL, min_seg_amplitude = 0.075)
           segs0   <- tryCatch(do.call("rbind", GetSegs(peaks, ifelse(s$mask, XSeg, -1), pars)), error = function(e) NULL)
           
         
@@ -329,7 +314,7 @@ evalPxl <- function(pxl) {
             # points(q90sen, with(data.frame(t = dtsSm, y = xSmooth)[seqRan[1]:max_in,],  max(y) - diff(range(y))*0.1), pch = 23, bg = "cornflowerblue", lwd = 2, cex = 3)
             # points(q50sen, q50, pch = 21, bg = "cornflowerblue", lwd = 2, cex = 3)
             # points(q10sen,with(data.frame(t = dtsSm, y = xSmooth)[max_out:seqRan[2],],  min(y) + diff(range(y))*0.1), pch = 22, bg = "cornflowerblue", lwd = 2, cex = 3)
-            
+
             out <- c(year = year,                                  #1
                      per1 = ifelse(wt.sig[1,3], wt.sig[1,2], NA),  #2
                      sig1 = ifelse(wt.sig[1,3], wt.sig[1,1], NA),  #3
@@ -411,14 +396,8 @@ evalPxl <- function(pxl) {
     
   }
   
-  if(any(wt.sig[,3]==1) & wt.sig[1,2]%in%c(42:62)) {
-    phen <- aggregate(phen0, by = list(phen0[,1]), median)[,-1]
-  } else {
-    phen <- do.call("rbind", lapply(split(as.data.frame(phen0), round(phen0[,1],0)), function(a) a[1,]))
-  }
-  
 
-  
+  phen <- aggregate(phen0, by = list(phen0[,1]), median)[,-1]
   merge(data.frame(year = 1981:2020), as.data.frame(phen), all.x = T)[,-1]
   
 }
