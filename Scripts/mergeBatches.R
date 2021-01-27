@@ -59,12 +59,25 @@ for(i in 1:13) {
   
 }
   
+
+listfls <- list.files("/Volumes/projects/bioing/user/slisovsk/", pattern = "*raster.rda")
+ id     <- as.numeric(sapply(strsplit(listfls, "_"), function(x) x[[1]]))
+
+seasList <- lapply(order(id), function(x) {
+  load(paste0("/Volumes/projects/bioing/user/slisovsk/", listfls[x]))
+  rOut
+}) 
+ 
+
+nms <- c("per1", "perSig1", "per2", "perSig2", "seasMax", "seasAmp", "seasArea", "gup10", "gup50", "gup90", "sen90", "sen50", "sen10")
+length(seasList)
+
+names(seasList) <- nms
+save(seasList, file = "~/Google Drive/SeasonalChange/seasList.rda")
+
+
   
 
-
-
-  
-#   
 # for(y in 2:41) {
 #     rOut <- r0; rOut[medDat[,1,i]] <- medDat[,y,i]
 #     writeRaster(rOut,paste0('~/Desktop/tmp/', i, "_", y, 'test.tif'), options=c('TFW=YES'))
